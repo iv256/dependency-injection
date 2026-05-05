@@ -1,0 +1,35 @@
+{
+  "name": "dependency-injection",
+  "type": "module",
+  "version": "0.1.0",
+  "main": "src/index.js",
+  "scripts": {
+    "lint": "eslint . -c .dev-tools/eslint.config.js",
+    "lint:file": "eslint -c .dev-tools/eslint.config.js",
+    "lint:fix": "eslint . -c .dev-tools/eslint.config.js --fix",
+    "format": "prettier --write . --config .dev-tools/prettier.config.js",
+    "doc": "jsdoc -c .dev-tools/jsdoc.json",
+    "example:basic": "node examples/basic/index.js",
+    "example:functional": "node examples/functional/index.js",
+    "example:lifecycle": "node examples/lifecycle/index.js"
+  },
+  "keywords": [
+      "dependency-injection",
+      "inversion-of-control",
+      "container",
+      "lazy-evaluation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "description": "Promise-based lazy dependency injection container for JavaScript/Node",
+  "devDependencies": {
+    "eslint": "^9.32.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-jsdoc": "^52.0.1",
+    "eslint-plugin-prettier": "^5.5.3",
+    "jsdoc": "^4.0.4",
+    "lint-staged": "^16.1.2",
+    "prettier": "^3.6.2"
+  }
+}

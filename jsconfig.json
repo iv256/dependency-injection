@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@src/*": ["src/*"],
+      "@test/*": ["test/*"],
+      "@examples/*": ["examples/*"]
+    },
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "target": "ES2022",
+    "checkJs": false
+  },
+  "exclude": [
+    "node_modules",
+    "docs",
+    "docs/jsdocs"
+  ]
+}
