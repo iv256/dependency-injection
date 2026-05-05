@@ -1,6 +1,8 @@
-import DIContainerSingleton from './di.container.js';
+import { DIContainer, createContainer } from './di.container.js';
 
-// Singleton instance
-const di = new DIContainerSingleton();
+// Default singleton instance for convenience
+const di = createContainer();
 
+// Export factory for creating independent containers
+export { DIContainer, createContainer };
 export default di;

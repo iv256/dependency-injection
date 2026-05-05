@@ -5,15 +5,12 @@ import createInstance from './di.injector.js';
 
 
 /**
- * Dependency Injection Container Singleton
+ * Dependency Injection Container
  */
-class DIContainerSingleton {
+export class DIContainer {
 
 
   constructor() {
-    if (DIContainerSingleton.instance) {
-      return DIContainerSingleton.instance;
-    }
 
     // Internal storage for all registered dependencies
     this._container = Object.create(null);
@@ -44,7 +41,6 @@ class DIContainerSingleton {
 
     });
 
-    DIContainerSingleton.instance = this;
   }
 
 
@@ -191,5 +187,7 @@ class DIContainerSingleton {
 
 }
 
-// Default export for global access
-export default DIContainerSingleton;
+// Fabric for creating new containers
+export function createContainer() {
+  return new DIContainer();
+}
