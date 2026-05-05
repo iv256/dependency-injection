@@ -5,11 +5,11 @@
 
 **Dependency-Injection** is a container to define and resolve dependencies for JavaScript/Node applications.
 
-The key specific features of this container is that it is designed to support **lazy and asynchronous resolution** of dependencies, allowing to define complex dependency graphs and execution flows in a flexible way as an promise-based expression.
+The key feature of this container is that it is designed to support **lazy and asynchronous resolution** of dependencies, allowing to define complex dependencies and execute them as a promise-based expression.
 
 In other words, the container stores lazy dependency resolvers (lazy promise-based execution units). Where each resolver is a lazy promise-based computation that produces a result on demand.
 
-So, developer can demand depencency as a promise, and container will resolve it lazy, asyncronously, with support for nested dependencies and composition of results.
+Developers request dependencies via di.get(key), and the container resolves them lazily and asynchronously.
 
 Resolved result can be object, another promise or function (In functional case it can be considered as a **functional computations**, allowing dependencies to describe not only returned data, but also as an executable flows defined by dependencies).
 
@@ -23,7 +23,7 @@ di.define(key, dependencyExpression, factory, options)
 
 Where:
 - *key* - is a flat string identifier
-- *dependencyExpression* - describes dependencies which are needed: how and which dependencies shold be resolved on demand to produce the result. Every dependency is a promise, and dependency expression and so describes how to resolve them.
+- *dependencyExpression* - describes dependencies which are needed: how and which dependencies shold be resolved on demand to produce the result. Each dependency is resolved as a promise.
 
 Usually dependencyExpression in an array of dependencies (list of promises). But it can be also a single expression, for example, if there is only one dependency or some another promise-based expression.
  
@@ -128,15 +128,28 @@ di.define('service', [
 
 ### 5. Lifecycle Control
 
-Each dependency can define its lifecycle:
+Each dependency should be defined with its lifecycle:
 
-- `singleton` — executed once and cached  
-- `transient` — executed every time  
+- `singleton` — executed once and cached (default behavior)
+- `transient` — executed on every resolution
+
 
 Example:
 
 ```js
 di.define('logger', [], createLogger, { lifecycle: 'singleton' })
+```
+
+Lifecycle support is planned but not fully implemented yet
+Now by default all dependencies are singletons (executed once and cached).
+Transient lifecycle can be defined now via functional wrapper - fabric that produces a new result on every execution:
+
+```js
+function transient(factory) {
+  return async function(...args) {
+    return factory(...args)
+  }
+}
 ```
 
 ---
