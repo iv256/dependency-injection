@@ -134,10 +134,11 @@ class DIContainerSingleton {
    * @returns {PromiseLike<any>} A thenable object that defers to the actual dependency.
    */
   get(key) {
+    const self = this;
     // TODO: check may be we can use lazy promise here instead of creating a custom thenable object
     return {
       then(onFulfilled, onRejected) {
-        const value = di.container[key];
+        const value = self.container[key];
 
         if (!value) {
           return Promise.reject(
@@ -190,8 +191,5 @@ class DIContainerSingleton {
 
 }
 
-// Singleton instance
-const di = new DIContainerSingleton();
-
 // Default export for global access
-export default di;
+export default DIContainerSingleton;
