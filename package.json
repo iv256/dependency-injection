@@ -21,7 +21,7 @@
   ],
   "author": "",
   "license": "MIT",
-  "description": "Promise-based lazy dependency injection container for JavaScript/Node",
+  "description": "A dependency injection container with lazy, promise-based resolution",
   "devDependencies": {
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.8",

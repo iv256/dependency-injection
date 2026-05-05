@@ -1,6 +1,8 @@
 # Dependency-Injection  
 ### Promise-based Lazy Dependency Resolution Container
 
+A dependency injection container with lazy, promise-based resolution
+
 ## Overview
 
 **Dependency-Injection** is a container to define and resolve dependencies for JavaScript/Node applications.
