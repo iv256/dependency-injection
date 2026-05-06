@@ -18,7 +18,7 @@ Stabilize and preserve the current working implementation.
 - Initial examples in `examples/`
 - Initial README and architecture documentation
 
-**Status:** Planned
+**Status:** Mostly Completed
 
 ---
 
@@ -36,7 +36,7 @@ Protect current behavior with automated tests before further refactoring.
 - Tests for async factories
 - Tests for functional dependency results
 
-**Status:** Planned
+**Status:** Mostly Completed
 
 ---
 
