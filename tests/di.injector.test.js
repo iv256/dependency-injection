@@ -7,13 +7,22 @@ import {
 } from '../src/index.js';
 
 describe('di.injector extension', () => {
-  it('does not add createInstance to core container by default', () => {
+  it('does not add class injector methods to core container by default', () => {
     const di = createCoreContainer();
 
+    expect(di.createClassInstance).toBeUndefined();
     expect(di.createInstance).toBeUndefined();
   });
 
-  it('adds createInstance method when injector extension is applied', () => {
+  it('adds createClassInstance method when injector extension is applied', () => {
+    const di = createCoreContainer();
+
+    useInjector(di);
+
+    expect(typeof di.createClassInstance).toBe('function');
+  });
+
+  it('adds deprecated createInstance alias when injector extension is applied', () => {
     const di = createCoreContainer();
 
     useInjector(di);
@@ -21,9 +30,10 @@ describe('di.injector extension', () => {
     expect(typeof di.createInstance).toBe('function');
   });
 
-  it('adds createInstance method to public container by default', () => {
+  it('adds class injector methods to public container by default', () => {
     const di = createContainer();
 
+    expect(typeof di.createClassInstance).toBe('function');
     expect(typeof di.createInstance).toBe('function');
   });
 
@@ -36,7 +46,7 @@ describe('di.injector extension', () => {
       }
     }
 
-    const instance = await di.createInstance(Service, {
+    const instance = await di.createClassInstance(Service, {
       name: 'test-service',
     });
 
@@ -63,7 +73,7 @@ describe('di.injector extension', () => {
       }
     }
 
-    const instance = await di.createInstance(Service);
+    const instance = await di.createClassInstance(Service);
 
     expect(instance).toBeInstanceOf(Service);
     expect(instance.config).toEqual({
@@ -90,13 +100,12 @@ describe('di.injector extension', () => {
       }
     }
 
-    const instance = await di.createInstance(Service);
+    const instance = await di.createClassInstance(Service);
 
     expect(instance.config).toEqual({
       apiUrl: '/api',
     });
   });
-
 
   it('injects dependency into nested params path using dot notation', async () => {
     const di = createContainer();
@@ -117,7 +126,7 @@ describe('di.injector extension', () => {
       }
     }
 
-    const instance = await di.createInstance(Service);
+    const instance = await di.createClassInstance(Service);
 
     expect(instance.config).toEqual({
       apiUrl: '/api',
@@ -147,7 +156,7 @@ describe('di.injector extension', () => {
       }
     }
 
-    const instance = await di.createInstance(Service);
+    const instance = await di.createClassInstance(Service);
 
     expect(instance.logger).toEqual({
       name: 'app-logger',
@@ -159,7 +168,6 @@ describe('di.injector extension', () => {
 
     expect(instance.logger).toBe(instance.serviceLogger);
   });
-
 
   it('preserves existing params and injects dependency into nested path', async () => {
     const di = createContainer();
@@ -180,7 +188,7 @@ describe('di.injector extension', () => {
       }
     }
 
-    const instance = await di.createInstance(Service, {
+    const instance = await di.createClassInstance(Service, {
       name: 'test-service',
       services: {
         existing: true,
@@ -194,6 +202,23 @@ describe('di.injector extension', () => {
     });
   });
 
+  it('supports deprecated createInstance alias', async () => {
+    const di = createContainer();
+
+    class Service {
+      constructor(params = {}) {
+        this.name = params.name;
+      }
+    }
+
+    const instance = await di.createInstance(Service, {
+      name: 'legacy-service',
+    });
+
+    expect(instance).toBeInstanceOf(Service);
+    expect(instance.name).toBe('legacy-service');
+  });
+
   it('throws when diKeyMap contains invalid target path', async () => {
     const di = createContainer();
 
@@ -204,10 +229,9 @@ describe('di.injector extension', () => {
     }
 
     await expect(
-      di.createInstance(Service)
+      di.createClassInstance(Service)
     ).rejects.toThrow(
       'DependencyInjection: Invalid diKeyMap entry for "config".'
     );
   });
-
 });

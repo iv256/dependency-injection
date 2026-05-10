@@ -103,6 +103,10 @@ function injectPathIntoObject(obj, path, value) {
   let target = obj;
 
   for (const key of keys) {
+    if (target[key] !== undefined && typeof target[key] !== 'object') {
+      throw new Error(`DependencyInjection: Path "${path}" cannot be created because "${key}" is not an object.`);
+    }
+    
     if (!target[key]) {
       target[key] = {};
     }
