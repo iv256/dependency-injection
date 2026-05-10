@@ -12,6 +12,7 @@
  * Class instance creation is delegated to the injector extension.
  */
 
+import lazyPromise from './lazy.promise.js';
 import lazy from './di.lazy.js';
 import createInstance from './di.injector.js';
 import { createRegistry } from './di.registry.js';
@@ -49,9 +50,50 @@ export class DIContainer {
    * @returns {PromiseLike<any>} Registered lazy promise-like dependency value.
    */
   define(key, ...args) {
-    const value = lazy(...args);
-    return this.registry.set(key, value);
+    // Normalize arguments into deps and factory
+    let deps = null;
+    let factory = null;
+    if (
+      args.length === 1 && typeof args[0] === 'function'
+    ) {
+      // It is a define(key, factory) call with no dependencies
+      deps = [];
+      factory = args[0];
+    } else if (
+      args.length === 2 &&
+      Array.isArray(args[0]) && typeof args[1] === 'function'
+    ) {
+      // It is a define(key, deps, factory) call with list of dependencies
+      deps = args[0];
+      factory = args[1];
+    } else {
+      // Wrong arguments
+      throw new TypeError('Lazy() expects (deps[], factory) or (factory)');
+    }
+    // Define factory result as a lazy promise and store it in registry
+    const lazyResult = this.defineResolveableUnit(deps, factory);
+    return this.registry.set(key, lazyResult);
   }
+
+  defineResolveableUnit(deps, factory) {
+    return lazyPromise((res, rej) => {
+      Promise.all(deps)
+        .then((resolvedDeps) => {
+          const result = factory(...resolvedDeps);
+  
+          if (result instanceof Promise) {
+            result.then(res).catch(rej);
+          } else {
+            if (result === undefined) {
+              console.debug('Factory returned undefined, this may lead to unexpected behavior');
+            }
+            res(result);
+          }
+        })
+        .catch(rej);
+    });
+  }
+
 
   /**
    * Returns a dependency from the DI container as a lazy thenable.
