@@ -7,17 +7,15 @@
  *
  * The library implements a lazy promise-based dependency graph.
  *
- * A developer registers named dependency keys using `di.define(...)`.
- * Each key is associated with a lazy resolvable unit that contains:
+ * A developer registers a named lazy resolvable unit with its dependencies using `di.define(...)`.
+ * So, each key described lazy resolvable unit is associated with:
  * - a list of lazy dependencies;
  * - a factory function that will be executed after all dependencies
  *   are resolved.
+ * All this data are stored internally in a registry-based key-value storage.
  *
- * These resolvable units are stored internally in a registry-based
- * key-value storage.
- *
- * Dependencies are not resolved immediately.
- * Instead, the container returns lazy resolution handles through `di.get(...)`,
+ * Based on a lazy-evaluation principle, dependencies are not resolved immediately.
+ * Instead, the container returns lazy resolution handles through `di.get(key)`,
  * and actual dependency resolution starts only after the returned lazy
  * handle is activated with `.then(...)`.
  *
@@ -72,7 +70,6 @@
  *       ↓
  *   the resolved result is returned to the user
  *
- /**
  * Dependency input requirements in the current version:
  *
  * - a dependency can be a string key of another registered unit;
@@ -145,11 +142,11 @@ export class DIContainer {
       throw new TypeError('define() expects (key, deps[], factory) or (key, factory)');
     }
     // Define factory result as a lazy promise and store it in registry
-    const lazyResult = this.defineResolveableUnit(deps, factory);
+    const lazyResult = this.createLazyResolvableUnit(deps, factory);
     return this.registry.set(key, lazyResult);
   }
 
-  defineResolveableUnit(deps, factory) {
+  createLazyResolvableUnit(deps, factory) {
     return lazyPromise((res, rej) => {
       Promise.all(deps)
         .then((resolvedDeps) => {
