@@ -86,7 +86,6 @@
  */
 
 import lazyPromise from './lazy.promise.js';
-import createInstance from './di.injector.js';
 import { createRegistry } from './di.registry.js';
 
 
@@ -254,16 +253,6 @@ export class DIContainer {
     });
   }
 
-  /**
-   * Creates an instance of a class with dependencies injected into class params.
-   *
-   * @param {Function} Class - Class constructor.
-   * @param {Object} params - Additional constructor parameters.
-   * @returns {Promise<any>} Created class instance.
-   */
-  createInstance(Class, params = {}) {
-    return createInstance(this, Class, params);
-  }
 }
 
 /**

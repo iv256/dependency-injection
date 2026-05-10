@@ -72,7 +72,7 @@ function injectResolvedDependenciesIntoObject(obj, resolvedKeyDeps, diKeyMap) {
  * @param {Object} params - Additional parameters to pass to the constructor
  * @returns {Object} The created instance
  */
-export default async function createInstance(di, Class, params = {}) {
+export async function createInstance(di, Class, params = {}) {
 
   // Validate that Class is a constructor function
   if (typeof Class !== 'function') {
@@ -112,3 +112,32 @@ export default async function createInstance(di, Class, params = {}) {
   return new Class(params);
 
 }
+
+/**
+ * Applies the class injector extension to a DI container instance.
+ *
+ * The core DIContainer does not import or know about this extension.
+ * This function attaches `createInstance(...)` from the outside during
+ * public container assembly.
+ *
+ * @param {Object} di - DI container instance.
+ * @returns {Object} The same DI container instance with injector API attached.
+ */
+export function useInjector(di) {
+  if (!di || typeof di !== 'object') {
+    throw new Error('DependencyInjection: DI container instance is required.');
+  }
+
+  Object.defineProperty(di, 'createInstance', {
+    configurable: true,
+    enumerable: false,
+    writable: false,
+    value(Class, params = {}) {
+      return createInstance(di, Class, params);
+    },
+  });
+
+  return di;
+}
+
+export default createInstance;
