@@ -86,7 +86,6 @@
  */
 
 import lazyPromise from './lazy.promise.js';
-import lazy from './di.lazy.js';
 import createInstance from './di.injector.js';
 import { createRegistry } from './di.registry.js';
 
@@ -99,7 +98,7 @@ import { createRegistry } from './di.registry.js';
  * It delegates low-level key-value storage to DIRegistry.
  * In the current version, the registry stores:
  *
- *   string key -> lazy promise
+ *   string key -> lazy resolvable unit
  *
  * DIContainer is responsible for:
  * - defining dependencies;
@@ -161,8 +160,11 @@ export class DIContainer {
   #normalizeDependencyInput(dep) {
     if (typeof dep === 'string') {
       return this.get(dep);
+    } else if (dep && typeof dep.then === 'function') {
+      return dep;
+    } else {
+      throw new TypeError('Dependency must be a string key or a lazy thenable');
     }
-    return dep;
   }
 
 
@@ -228,13 +230,28 @@ export class DIContainer {
   }
 
   /**
-   * Creates a lazy promise from a factory or dependency list and factory.
+   * Creates a lazy promise from a factory
    *
-   * @param {...*} args - Factory or dependency list and factory.
+   * @param {Function} factory - Factory function.
    * @returns {PromiseLike<any>} Lazy promise-like value.
    */
-  lazy(...args) {
-    return lazy(...args);
+  lazy(factory) {
+    return lazyPromise((res, rej) => {
+      try {
+        const result = factory();
+
+        if (
+          result &&
+          typeof result.then === 'function'
+        ) {
+          result.then(res).catch(rej);
+        } else {
+          res(result);
+        }
+      } catch (error) {
+        rej(error);
+      }
+    });
   }
 
   /**

@@ -82,6 +82,37 @@ describe('di.define()', () => {
     );
   });
 
+  it('resolves dependency by string registry key', async () => {
+    const di = createContainer();
+
+    di.define('config', () => {
+      return { apiUrl: '/api' };
+    });
+
+    di.define('api.client', ['config'], (config) => {
+      return { url: config.apiUrl };
+    });
+
+    await expect(di.get('api.client')).resolves.toEqual({
+      url: '/api',
+    });
+  });
+
+  it('resolves dependency from lazy thenable created with di.lazy()', async () => {
+    const di = createContainer();
+
+    const expectedValue = 'lazy-value';
+    di.define('service', [
+      di.lazy(() => {
+        return expectedValue;
+      })
+    ], (value) => {
+      return value;
+    });
+
+    await expect(di.get('service')).resolves.toBe(expectedValue);
+  });
+
   it('throws when key is not a string', () => {
     const di = createContainer();
 
