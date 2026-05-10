@@ -7,12 +7,14 @@
  *
  * The library implements a lazy promise-based dependency graph.
  *
- * A developer registers a named lazy resolvable unit with its dependencies using `di.define(...)`.
- * So, each key described lazy resolvable unit is associated with:
+ * A developer registers a named lazy resolvable unit with its dependencies
+ * using `di.define(...)`.
+ *
+ * Each registered key is associated with:
  * - a list of lazy dependencies;
  * - a factory function that will be executed after all dependencies
  *   are resolved.
- * All this data are stored internally in a registry-based key-value storage.
+ * All this data is stored internally in a registry-based key-value storage.
  *
  * Based on a lazy-evaluation principle, dependencies are not resolved immediately.
  * Instead, the container returns lazy resolution handles through `di.get(key)`,
@@ -142,26 +144,61 @@ export class DIContainer {
       throw new TypeError('define() expects (key, deps[], factory) or (key, factory)');
     }
     // Define factory result as a lazy promise and store it in registry
-    const lazyResult = this.createLazyResolvableUnit(deps, factory);
+    const lazyResult = this.#createLazyResolvableUnit(deps, factory);
     return this.registry.set(key, lazyResult);
   }
 
-  createLazyResolvableUnit(deps, factory) {
+  /**
+   * Normalizes a dependency input into a lazy thenable.
+   *
+   * In the current version, a dependency input can be:
+   * - a string key of another registered unit;
+   * - a lazy thenable created with `di.lazy(...)`.
+   *
+   * @param {string|PromiseLike<any>} dep - Dependency input to resolve.
+   * @returns {PromiseLike<any>} Resolved lazy thenable.
+   */
+  #normalizeDependencyInput(dep) {
+    if (typeof dep === 'string') {
+      return this.get(dep);
+    }
+    return dep;
+  }
+
+
+  /**
+   * This method is used in `define()` to create a lazy resolvable unit
+   * which will be stored in the registry under the given key
+   * and will be resolved lazily when `di.get(key)` is called with `.then(...)`.
+   * 
+   * This method creates a lazy promise from a dependency list and factory.
+   * In a lazy promise, all dependencies will be resolved and the factory will be executed
+   * using resolved dependencies as arguments.
+   *
+   * @param {Array} deps - List of dependencies (as strings or lazy thenables).
+   * @param {Function} factory - Factory function to execute after deps are resolved.
+   * @returns {PromiseLike<any>} Lazy promise-like value.
+   */
+  #createLazyResolvableUnit(deps, factory) {
     return lazyPromise((res, rej) => {
-      Promise.all(deps)
-        .then((resolvedDeps) => {
-          const result = factory(...resolvedDeps);
-  
-          if (result instanceof Promise) {
-            result.then(res).catch(rej);
-          } else {
-            if (result === undefined) {
-              console.debug('Factory returned undefined, this may lead to unexpected behavior');
-            }
-            res(result);
+      Promise.all(
+        deps.map((dep) => this.#normalizeDependencyInput(dep))
+      )
+      .then((resolvedDeps) => {
+        const result = factory(...resolvedDeps);
+        if (
+          result &&
+          typeof result.then === 'function'
+        ) {
+          result.then(res).catch(rej);
+        } else {
+          if (result === undefined) {
+            console.debug('Factory returned undefined, this may lead to unexpected behavior');
           }
-        })
-        .catch(rej);
+          res(result);
+        }
+      })
+      .catch(rej);
     });
   }
 
