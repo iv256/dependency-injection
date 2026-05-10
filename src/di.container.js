@@ -3,12 +3,86 @@
  *
  * This module defines the main DIContainer class.
  *
- * DIContainer is the primary public API of the dependency injection library.
- * It coordinates dependency registration, lazy dependency access, and optional
- * DI-related helpers.
+ * DIContainer is the main public API of the dependency injection library.
+ *
+ * The library implements a lazy promise-based dependency graph.
+ *
+ * A developer registers named dependency keys using `di.define(...)`.
+ * Each key is associated with a lazy resolvable unit that contains:
+ * - a list of lazy dependencies;
+ * - a factory function that will be executed after all dependencies
+ *   are resolved.
+ *
+ * These resolvable units are stored internally in a registry-based
+ * key-value storage.
+ *
+ * Dependencies are not resolved immediately.
+ * Instead, the container returns lazy resolution handles through `di.get(...)`,
+ * and actual dependency resolution starts only after the returned lazy
+ * handle is activated with `.then(...)`.
+ *
+ * This allows the container to build lazy dependency chains where resolving
+ * one unit may automatically trigger resolution of other dependent units.
+ *
+ * It allows a developer to register named lazy units of work and resolve them
+ * later only when their result is actually needed.
+ *
+ * Basic usage:
+ * 
+ *   di.define('config', () => {
+ *     return loadConfig();
+ *   });
+ *
+ *   di.define('api.client', ['config'], (config) => {
+ *     return createApiClient(config);
+ *   });
+ *
+ *   di.get('api.client').then((apiClient) => {
+ *     // Use resolved apiClient here.
+ *   });
+ *
+ * Why this is useful:
+ *
+ * - dependencies are described in one place;
+ * - dependent units are resolved automatically;
+ * - independent dependencies may be resolved in parallel;
+ * - execution remains lazy until `.then(...)` is called;
+ * - named units can be reused through registry keys;
+ * - dependency chains may trigger automatically through lazy resolution.
+ *
+ * Usage lifecycle:
+ * 
+ *   di.define(key, deps, factory)
+ *       ↓
+ *   creates a lazy resolvable unit
+ *       ↓
+ *   stores this unit in DIRegistry under the given key
+ *
+ *   di.get(key)
+ *       ↓
+ *   returns a lazy resolution handle
+ *       ↓
+ *   .then(...) activates this handle
+ *       ↓
+ *   the container looks up the registered unit
+ *       ↓
+ *   the unit resolves its dependencies
+ *       ↓
+ *   the unit executes its factory
+ *       ↓
+ *   the resolved result is returned to the user
+ *
+ /**
+ * Dependency input requirements in the current version:
+ *
+ * - a dependency can be a string key of another registered unit;
+ * - a dependency can be a lazy thenable created with `di.lazy(...)`;
+ * - native Promise values are not accepted as dependencies;
+ * - plain functions are not accepted as dependencies;
+ * - all dependencies must remain lazy until the resolution phase.
  *
  * Low-level key-value storage is delegated to DIRegistry.
- * Lazy promise creation is delegated to the DI lazy wrapper.
+ * Lazy thenable creation is delegated to the lazy promise primitive.
  * Class instance creation is delegated to the injector extension.
  */
 
@@ -68,7 +142,7 @@ export class DIContainer {
       factory = args[1];
     } else {
       // Wrong arguments
-      throw new TypeError('Lazy() expects (deps[], factory) or (factory)');
+      throw new TypeError('define() expects (key, deps[], factory) or (key, factory)');
     }
     // Define factory result as a lazy promise and store it in registry
     const lazyResult = this.defineResolveableUnit(deps, factory);
