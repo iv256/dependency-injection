@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { createContainer } from '../src/index.js';
+import { createContainer } from '../../src/index.js';
 
 describe('di.get()', () => {
 

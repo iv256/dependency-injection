@@ -13,6 +13,7 @@
  */
 
 import { DIContainer } from './core/di.container.js';
+import { useDefineSyntax } from './extensions/define/index.js';
 import { useInjector } from './extensions/injector/index.js';
 
 
@@ -38,6 +39,7 @@ export function createCoreContainer() {
 export function createContainer() {
   const container = createCoreContainer();
 
+  useDefineSyntax(container);
   useInjector(container);
 
   return container;
@@ -48,7 +50,8 @@ export function createContainer() {
 const di = createContainer();
 
 export {
-  DIContainer, 
+  DIContainer,
+  useDefineSyntax,
   useInjector,
 };
 

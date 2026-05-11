@@ -1,12 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { createContainer } from '../../src/index.js';
 
-describe('di.define()', () => {
+import {
+  createCoreContainer,
+} from '../../src/index.js';
 
-  it('registers dependency without dependencies', async () => {
-    const di = createContainer();
+describe('core define', () => {
 
-    di.define('value', () => {
+  it('registers dependency without dependencies using strict core syntax', async () => {
+    const di = createCoreContainer();
+
+    di.define('value', [], () => {
       return 42;
     });
 
@@ -15,15 +18,15 @@ describe('di.define()', () => {
     expect(result).toBe(42);
   });
 
-  it('registers dependency with dependencies array', async () => {
-    const di = createContainer();
+  it('registers dependency with normalized thenable dependencies', async () => {
+    const di = createCoreContainer();
 
-    di.define('base.value', () => {
+    di.define('base.value', [], () => {
       return 10;
     });
 
     di.define('computed.value', [
-      di.get('base.value')
+      di.get('base.value'),
     ], (baseValue) => {
       return baseValue + 5;
     });
@@ -34,25 +37,45 @@ describe('di.define()', () => {
   });
 
   it('does not execute factory during define()', () => {
-    const di = createContainer();
+    const di = createCoreContainer();
 
     let isFactoryExecuted = false;
 
-    di.define('service', () => {
+    di.define('service', [], () => {
       isFactoryExecuted = true;
 
       return {
-        ok: true
+        ok: true,
       };
     });
 
     expect(isFactoryExecuted).toBe(false);
   });
 
-  it('returns registered lazy promise-like object', () => {
-    const di = createContainer();
+  it('executes factory only when dependency is resolved', async () => {
+    const di = createCoreContainer();
 
-    const result = di.define('value', () => {
+    let isFactoryExecuted = false;
+
+    di.define('service', [], () => {
+      isFactoryExecuted = true;
+
+      return {
+        ok: true,
+      };
+    });
+
+    expect(isFactoryExecuted).toBe(false);
+
+    await di.get('service');
+
+    expect(isFactoryExecuted).toBe(true);
+  });
+
+  it('returns registered lazy promise-like object', () => {
+    const di = createCoreContainer();
+
+    const result = di.define('value', [], () => {
       return 42;
     });
 
@@ -62,18 +85,18 @@ describe('di.define()', () => {
   });
 
   it('throws when defining duplicate key', () => {
-    const di = createContainer();
+    const di = createCoreContainer();
 
-    di.define('service', () => {
+    di.define('service', [], () => {
       return {
-        ok: true
+        ok: true,
       };
     });
 
     expect(() => {
-      di.define('service', () => {
+      di.define('service', [], () => {
         return {
-          ok: false
+          ok: false,
         };
       });
     }).toThrow(
@@ -81,83 +104,112 @@ describe('di.define()', () => {
     );
   });
 
-  it('resolves dependency by string registry key', async () => {
-    const di = createContainer();
+  it('throws when key is not a string', () => {
+    const di = createCoreContainer();
 
-    di.define('config', () => {
-      return { apiUrl: '/api' };
-    });
-
-    di.define('api.client', ['config'], (config) => {
-      return { url: config.apiUrl };
-    });
-
-    await expect(di.get('api.client')).resolves.toEqual({
-      url: '/api',
-    });
+    expect(() => {
+      di.define(123, [], () => {
+        return 42;
+      });
+    }).toThrow(
+      'DependencyInjection: Dependency key must be a string.'
+    );
   });
 
-  it('resolves dependency from lazy thenable created with di.lazy()', async () => {
-    const di = createContainer();
+  it('throws when dependencies are not an array', () => {
+    const di = createCoreContainer();
+
+    expect(() => {
+      di.define('value', () => {
+        return 42;
+      });
+    }).toThrow(
+      'DependencyInjection: Dependencies must be an array.'
+    );
+  });
+
+  it('throws when factory is not a function', () => {
+    const di = createCoreContainer();
+
+    expect(() => {
+      di.define('value', [], {
+        invalid: true,
+      });
+    }).toThrow(
+      'DependencyInjection: Factory must be a function.'
+    );
+  });
+
+  it('throws when dependency is not a thenable object', () => {
+    const di = createCoreContainer();
+
+    expect(() => {
+      di.define('computed.value', [
+        'base.value',
+      ], (baseValue) => {
+        return baseValue + 5;
+      });
+    }).toThrow(
+      'DependencyInjection: Core dependency must be a thenable object.'
+    );
+  });
+
+  it('supports lazy thenable dependency created with di.lazy()', async () => {
+    const di = createCoreContainer();
 
     const expectedValue = 'lazy-value';
+
     di.define('service', [
       di.lazy(() => {
         return expectedValue;
-      })
+      }),
     ], (value) => {
       return value;
     });
 
-    await expect(di.get('service')).resolves.toBe(expectedValue);
+    const result = await di.get('service');
+
+    expect(result).toBe(expectedValue);
   });
 
-  it('throws when key is not a string', () => {
-    const di = createContainer();
+  it('supports async factory result', async () => {
+    const di = createCoreContainer();
 
-    expect(() => {
-      di.define(123, () => {
-        return 42;
-      });
-    }).toThrow(
-      'Dependency key must be a string'
-    );
-  });
+    const expectedValue = 123;
 
-  it('supports async factory definition', async () => {
-    const di = createContainer();
-
-    di.define('async.value', async () => {
-      return 123;
+    di.define('async.value', [], async () => {
+      return expectedValue;
     });
 
     const result = await di.get('async.value');
 
-    expect(result).toBe(123);
+    expect(result).toBe(expectedValue);
   });
 
   it('supports dependency chain registration', async () => {
-    const di = createContainer();
+    const di = createCoreContainer();
 
-    di.define('a', () => {
+    const expectedValue = 8;
+
+    di.define('a', [], () => {
       return 2;
     });
 
     di.define('b', [
-      di.get('a')
+      di.get('a'),
     ], (a) => {
       return a * 2;
     });
 
     di.define('c', [
-      di.get('b')
+      di.get('b'),
     ], (b) => {
       return b * 2;
     });
 
     const result = await di.get('c');
 
-    expect(result).toBe(8);
+    expect(result).toBe(expectedValue);
   });
 
 });

@@ -72,13 +72,10 @@
  *       ↓
  *   the resolved result is returned to the user
  *
- * Dependency input requirements in the current version:
- *
- * - a dependency can be a string key of another registered unit;
- * - a dependency can be a lazy thenable created with `di.lazy(...)`;
- * - native Promise values are not accepted as dependencies;
- * - plain functions are not accepted as dependencies;
- * - all dependencies must remain lazy until the resolution phase.
+ * Core dependency requirements:
+ * - dependencies must already be normalized to thenable objects;
+ * - syntax shortcuts are handled outside of the container core;
+ * - dependency normalization is delegated to optional syntax extensions.
  *
  * Low-level key-value storage is delegated to DIRegistry.
  * Lazy thenable creation is delegated to the lazy promise primitive.
@@ -111,95 +108,73 @@ export class DIContainer {
   }
 
   /**
-   * Defines a new dependency in the DI container.
+   * Defines a new named lazy resolvable unit in the DI container.
    *
-   * In the current version, `define(...)` converts dependency arguments
-   * into a lazy promise and stores it in DIRegistry.
+   * Core define has a strict low-level contract:
+   *
+   *   di.define(key, dependencies, factory)
+   *
+   * Syntax shortcuts are not handled here. Public syntax extensions may wrap
+   * this method and normalize flexible input before calling the core method.
    *
    * @param {string} key - Unique dependency key.
-   * @param {...*} args - Factory or dependency list and factory.
+   * @param {Array<PromiseLike<any>>} dependencies - List of lazy thenable dependencies.
+   * @param {Function} factory - Factory function executed after dependencies are resolved.
    * @returns {PromiseLike<any>} Registered lazy promise-like dependency value.
    */
-  define(key, ...args) {
-    // Normalize arguments into deps and factory
-    let deps = null;
-    let factory = null;
-    if (
-      args.length === 1 && typeof args[0] === 'function'
-    ) {
-      // It is a define(key, factory) call with no dependencies
-      deps = [];
-      factory = args[0];
-    } else if (
-      args.length === 2 &&
-      Array.isArray(args[0]) && typeof args[1] === 'function'
-    ) {
-      // It is a define(key, deps, factory) call with list of dependencies
-      deps = args[0];
-      factory = args[1];
-    } else {
-      // Wrong arguments
-      throw new TypeError('define() expects (key, deps[], factory) or (key, factory)');
+  define(key, dependencies, factory) {
+    if (typeof key !== 'string') {
+      throw new TypeError('DependencyInjection: Dependency key must be a string.');
     }
-    // Define factory result as a lazy promise and store it in registry
-    const lazyResult = this.#createLazyResolvableUnit(deps, factory);
+
+    if (!Array.isArray(dependencies)) {
+      throw new TypeError('DependencyInjection: Dependencies must be an array.');
+    }
+
+    if (typeof factory !== 'function') {
+      throw new TypeError('DependencyInjection: Factory must be a function.');
+    }
+
+    for (const dependency of dependencies) {
+      if (!dependency || typeof dependency.then !== 'function') {
+        throw new TypeError('DependencyInjection: Core dependency must be a thenable object.');
+      }
+    }
+
+    const lazyResult = this.#createLazyResolvableUnit(dependencies, factory);
+
     return this.registry.set(key, lazyResult);
   }
-
-  /**
-   * Normalizes a dependency input into a lazy thenable.
-   *
-   * In the current version, a dependency input can be:
-   * - a string key of another registered unit;
-   * - a lazy thenable created with `di.lazy(...)`.
-   *
-   * @param {string|PromiseLike<any>} dep - Dependency input to resolve.
-   * @returns {PromiseLike<any>} Resolved lazy thenable.
-   */
-  #normalizeDependencyInput(dep) {
-    if (typeof dep === 'string') {
-      return this.get(dep);
-    } else if (dep && typeof dep.then === 'function') {
-      return dep;
-    } else {
-      throw new TypeError('Dependency must be a string key or a lazy thenable');
-    }
-  }
-
 
   /**
    * This method is used in `define()` to create a lazy resolvable unit
    * which will be stored in the registry under the given key
    * and will be resolved lazily when `di.get(key)` is called with `.then(...)`.
    * 
-   * This method creates a lazy promise from a dependency list and factory.
-   * In a lazy promise, all dependencies will be resolved and the factory will be executed
-   * using resolved dependencies as arguments.
+   * Dependencies must be already normalized to thenable objects.
    *
-   * @param {Array} deps - List of dependencies (as strings or lazy thenables).
-   * @param {Function} factory - Factory function to execute after deps are resolved.
+   * @param {Array<PromiseLike<any>>} dependencies - List of lazy thenable dependencies.
+   * @param {Function} factory - Factory function to execute after dependencies are resolved.
    * @returns {PromiseLike<any>} Lazy promise-like value.
    */
-  #createLazyResolvableUnit(deps, factory) {
+  #createLazyResolvableUnit(dependencies, factory) {
     return lazyPromise((res, rej) => {
-      Promise.all(
-        deps.map((dep) => this.#normalizeDependencyInput(dep))
-      )
-      .then((resolvedDeps) => {
-        const result = factory(...resolvedDeps);
-        if (
-          result &&
-          typeof result.then === 'function'
-        ) {
-          result.then(res).catch(rej);
-        } else {
-          if (result === undefined) {
-            console.debug('Factory returned undefined, this may lead to unexpected behavior');
+      Promise.all(dependencies)
+        .then((resolvedDeps) => {
+          const result = factory(...resolvedDeps);
+          if (
+            result &&
+            typeof result.then === 'function'
+          ) {
+            result.then(res).catch(rej);
+          } else {
+            if (result === undefined) {
+              console.debug('Factory returned undefined, this may lead to unexpected behavior');
+            }
+            res(result);
           }
-          res(result);
-        }
-      })
-      .catch(rej);
+        })
+        .catch(rej);
     });
   }
 
