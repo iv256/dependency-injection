@@ -12,8 +12,8 @@
  * 
  */
 
-import { DIContainer } from './di.container.js';
-import { useInjector } from './di.injector.js';
+import { DIContainer } from './core/di.container.js';
+import { useInjector } from './extensions/injector/index.js';
 
 
 /**

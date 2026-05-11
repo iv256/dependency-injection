@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
-import { DIRegistry, createRegistry } from '../src/di.registry.js';
-import lazyPromise from '../src/lazy.promise.js';
+import { DIRegistry, createRegistry } from '../src/core/di.registry.js';
+import lazyPromise from '../src/core/lazy.promise.js';
 
 describe('DIRegistry', () => {
 

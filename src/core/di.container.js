@@ -85,7 +85,7 @@
  * Class instance creation is delegated to the injector extension.
  */
 
-import lazyPromise from './core/lazy.promise.js';
+import lazyPromise from './lazy.promise.js';
 import { createRegistry } from './di.registry.js';
 
 

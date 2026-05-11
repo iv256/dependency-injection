@@ -1,4 +1,4 @@
-import lazyPromise from '../src/lazy.promise.js';
+import lazyPromise from '../src/core/lazy.promise.js';
 import { describe, it, expect } from 'vitest';
 
 describe('lazyPromise', () => {
