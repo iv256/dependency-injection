@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import di, { DIContainer, createContainer } from '../src/index.js';
+import di, { DIContainer, createContainer } from '../../src/index.js';
 
 describe('DIContainer initialization', () => {
 

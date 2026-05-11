@@ -4,7 +4,7 @@ import {
   createContainer,
   createCoreContainer,
   useInjector,
-} from '../src/index.js';
+} from '../../../src/index.js';
 
 describe('di.injector extension', () => {
   it('does not add class injector methods to core container by default', () => {
