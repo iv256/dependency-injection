@@ -254,12 +254,3 @@ export class DIContainer {
   }
 
 }
-
-/**
- * Creates a new DI container instance.
- *
- * @returns {DIContainer} New DI container instance.
- */
-export function createContainer() {
-  return new DIContainer();
-}

@@ -1,5 +1,30 @@
-import { DIContainer, createContainer as createCoreContainer } from './di.container.js';
+/**
+ * Dependency Injection library public composition root.
+ *
+ * This module assembles the public DI container API by composing:
+ *
+ * - the core DI container implementation;
+ * - optional extensions;
+ * - the default public container instance.
+ *
+ * The core container itself remains independent from extensions.
+ * Extensions are attached externally during container assembly.
+ * 
+ */
+
+import { DIContainer } from './di.container.js';
 import { useInjector } from './di.injector.js';
+
+
+/**
+ * Creates a new DI container instance.
+ *
+ * @returns {DIContainer} New DI container instance.
+ */
+export function createCoreContainer() {
+  return new DIContainer();
+}
+
 
 /**
  * Creates a public DI container instance with default extensions applied.
@@ -18,8 +43,13 @@ export function createContainer() {
   return container;
 }
 
+
 // Default singleton instance for convenience.
 const di = createContainer();
 
-export { DIContainer, createCoreContainer, useInjector };
+export {
+  DIContainer, 
+  useInjector,
+};
+
 export default di;
