@@ -129,7 +129,24 @@ describe('define syntax extension', () => {
     await expect(di.get('service')).resolves.toBe(expectedValue);
   });
 
-  it('resolves dependency from function dependency item', async () => {
+  it('does not execute lazy thenable dependency during define()', () => {
+    const di = createContainerWithDefineSyntax();
+
+    let isFunctionExecuted = false;
+
+    di.define('service', [
+      di.lazy(() => {
+        isFunctionExecuted = true;
+        return 42;
+      }),
+    ], (funcRes) => {
+      return 'answer is ' + funcRes;
+    });
+
+    expect(isFunctionExecuted).toBe(false);
+  });
+
+  it('resolves dependency from function dependency', async () => {
     const di = createContainerWithDefineSyntax();
 
     const expectedValue = 15;
@@ -143,6 +160,23 @@ describe('define syntax extension', () => {
     });
 
     await expect(di.get('service')).resolves.toBe(expectedValue);
+  });
+
+  it('does not execute function dependency during define()', () => {
+    const di = createContainerWithDefineSyntax();
+
+    let isFunctionExecuted = false;
+
+    di.define('service', [
+      () => {
+        isFunctionExecuted = true;
+        return 42;
+      },
+    ], (funcRes) => {
+      return 'answer is ' + funcRes;
+    });
+
+    expect(isFunctionExecuted).toBe(false);
   });
 
   it('throws when key is not a string', () => {
