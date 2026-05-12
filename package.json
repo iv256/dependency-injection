@@ -9,9 +9,13 @@
     "lint:fix": "eslint . -c .dev-tools/eslint.config.js --fix",
     "format": "prettier --write . --config .dev-tools/prettier.config.js",
     "doc": "jsdoc -c .dev-tools/jsdoc.json",
-    "example:basic": "node examples/basic/index.js",
-    "example:functional": "node examples/functional/index.js",
-    "example:lifecycle": "node examples/lifecycle/index.js",
+
+    "example:simple-dependency": "node examples/simple.dependency.js",
+    "example:dependency-list": "node examples/dependency.list.js",
+    "example:dependency-chain": "node examples/dependency.chain.js",
+    "example:functional-dependency": "node examples/functional.dependency.js",
+    "example:class-injection": "node examples/class.injection.js",
+
     "test": "vitest",
     "test:run": "vitest run"
   },
