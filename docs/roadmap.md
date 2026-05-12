@@ -53,7 +53,7 @@ Separate the core system from utilities and optional features.
 - Define clear public API boundaries
 - Keep injector (class-based injection) as an optional layer
 
-**Status:** Planned
+**Status:** Mostly Completed
 
 ---
 
