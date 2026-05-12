@@ -18,15 +18,22 @@ A dependency injection container focused on lazy and asynchronous dependency res
 
 The container stores named lazy dependency definitions.
 
-Dependencies are not executed during registration.
-They are resolved only when explicitly activated through:
+Dependencies are registered through:
+
+```js
+di.define(key, dependencies, factory)
+```
+
+Dependencies are resolved through:
 
 ```js
 await di.get(key)
 ```
 
-The result of `di.get(...)` is a lazy resolution handle.
+Dependencies are not executed during registration.
 Resolution starts only after `.then(...)` / `await` activation.
+
+The result of `di.get(...)` is a lazy resolution handle.
 
 This allows dependencies to behave as lazy executable runtime units.
 
