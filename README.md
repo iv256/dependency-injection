@@ -1,213 +1,256 @@
-# Dependency-Injection  
+# Dependency-Injection
+
 ### Promise-based Lazy Dependency Resolution Container
 
-A dependency injection container with lazy, promise-based resolution
+A dependency injection container focused on lazy and asynchronous dependency resolution.
 
-## Overview
+---
 
-**Dependency-Injection** is a container to define and resolve dependencies for JavaScript/Node applications.
+# Overview
 
-The key feature of this container is that it is designed to support **lazy and asynchronous resolution** of dependencies, allowing to define complex dependencies and execute them as a promise-based expression.
+**Dependency-Injection** is a JavaScript/Node.js dependency injection container designed around:
 
-In other words, the container stores lazy dependency resolvers (lazy promise-based execution units). Where each resolver is a lazy promise-based computation that produces a result on demand.
+- lazy dependency activation;
+- asynchronous dependency resolution;
+- promise-based execution;
+- executable dependency graphs;
+- explicit runtime composition.
 
-Developers request dependencies via di.get(key), and the container resolves them lazily and asynchronously.
+The container stores named lazy dependency definitions.
 
-Resolved result can be object, another promise or function (In functional case it can be considered as a **functional computations**, allowing dependencies to describe not only returned data, but also as an executable flows defined by dependencies).
-
-## Synopsis
-
-The format of defining AnyThing (object, functional, class, module, etc) is:
+Dependencies are not executed during registration.
+They are resolved only when explicitly activated through:
 
 ```js
-di.define(key, dependencyExpression, factory, options)
+await di.get(key)
 ```
 
-Where:
-- *key* - is a flat string identifier
-- *dependencyExpression* - describes dependencies which are needed: how and which dependencies shold be resolved on demand to produce the result. Each dependency is resolved as a promise.
+The result of `di.get(...)` is a lazy resolution handle.
+Resolution starts only after `.then(...)` / `await` activation.
 
-Usually dependencyExpression in an array of dependencies (list of promises). But it can be also a single expression, for example, if there is only one dependency or some another promise-based expression.
- 
-After dependencie expression is resolved the results will be passed into *factory* as arguments.
+This allows dependencies to behave as lazy executable runtime units.
 
-- *factory* is a function that produces the result based on resolved dependencies. It can return any value, object, function, or promise. It is executed lazily when the dependency is requested via `di.get(key)`, and it is executed with resolved dependencies as arguments.
+---
 
-- *options* may include lifecycle (e.g. singleton, transient)
+# Motivation
+
+Most dependency injection containers are primarily focused on:
+
+- object construction;
+- constructor injection;
+- service registration;
+- synchronous application assembly.
+
+This project explores a different approach.
+
+Here dependencies are treated not only as objects,
+but also as:
+
+- asynchronous computations;
+- executable functions;
+- runtime execution flows;
+- lazy promise-based operations.
+
+The container is designed to support scenarios where:
+
+- expensive resources should not initialize during startup;
+- asynchronous infrastructure should be activated on demand;
+- dependency chains should execute lazily;
+- execution should happen only when really needed.
+
+The project is also designed to remain flexible and minimally intrusive.
+
+Dependencies may coexist with regular JavaScript classes,
+functions, modules, or application code that knows nothing
+about the DI container itself.
+
+The container may inject dependencies into classes,
+but it does not require the entire application architecture
+to be built around framework-specific abstractions.
+
+---
+
+# Core Resolution Model
+
+The container uses a lazy resolution model:
+
+```text
+get() does not resolve.
+get() returns a lazy resolution handle.
+.then() / await activates resolution.
+resolver executes the dependency graph.
+```
 
 Example:
 
 ```js
+const userServiceHandle = di.get('user.service');
 
-di.define('config', [], () => {
-  return { apiUrl: '/api' }
-});
+// Nothing is executed yet.
 
-di.define('client', ['config'], (config) => {
-  return new ApiClient(config.apiUrl)
-});
+const userService = await userServiceHandle;
 
-di.define('service', [
-  'repository',
-  'client',
-  di.lazy(loadInitialData),
-], (repository, client, initialData) => {
-  return new Service(repository, client, initialData)
-}, { lifecycle: 'singleton' })
+// Dependency resolution starts here.
 ```
----
-
-## Key Features
-
-### 1. Lazy Resolution
-
-Dependencies are **not executed at registration time**.  
-They are resolved only when explicitly requested via `di.get(...)`.
-
-This allows:
-
-- fast application startup (define dependencies without executing them)
-- on-demand computation (execute dependencies only when needed)
-- simplify application logic (by describing dependencies directly 'inplace')
-- avoid unnecessary computations (because dependencies execute only when requested or used by other dependencies as a part of their resolution)
 
 ---
 
-### 2. Asynchronous Resolution
+# Dependency Definition
 
-All dependencies are asynchronous. It is compatible with asynchronous operations (with JavaScript/Node async functions, network APIs, and native promise support).
+Dependencies are defined through:
 
-Resolution excetutes defined dependencies asyncronously, as a promises-based expression, with resolving nested dependencies (as a "domino effect") and allowing to provide the result into another promise or definition.
+```js
+di.define(key, dependencies, factory)
+```
+
+Example:
+
+```js
+di.define('app.config', [], () => {
+  return {
+    apiUrl: '/api',
+  };
+});
+
+
+di.define('api.client', [
+  'app.config',
+], (config) => {
+  return new ApiClient(config.apiUrl);
+});
+```
+
+The factory is executed lazily after dependencies are resolved.
 
 ---
 
-### 3. Functional Dependency Model
+# Functional Dependencies
 
 Dependencies are not limited to objects.
 
-A dependency can represent:
+A dependency may return:
 
-- a value  
-- a service instance  
-- a function  
-- a computation  
-- a full execution flow  
+- object;
+- class instance;
+- function;
+- async function;
+- executable runtime logic.
 
 Example:
 
 ```js
-di.define('fn.fetchUserData', ['clients.userClient'], (client) => {
-  return async function fetchUserData(userId) {
-    return client.fetchUserData(userId)
-  }
-})
+di.define('format.user.name', [], () => {
+  return (user) => {
+    return user.name.toUpperCase();
+  };
+});
 ```
 
 ---
 
-### 4. Dependency Expressions
+# Injector Extension
 
-Dependencies are described using **dependency expressions**, allowing flexible composition:
+The container supports optional class injection.
 
-- `di.ref(key)` — reference another dependency
-- `di.value(value)` — inject a static value
-- `di.lazy(fn)` — lazy execution
-- `di.all([...])` — resolve multiple dependencies
+Dependencies may be injected into constructor params through:
+
+```js
+static diKeyMap
+```
 
 Example:
 
 ```js
-di.define('service', [
-  'repo',
-  di.value(3000),
-  di.lazy(loadConfig)
-], (repo, timeout, config) => {
-  return new Service(repo, timeout, config)
-})
-```
+class UserView {
+  static diKeyMap = {
+    'user': 'user',
+  };
 
----
-
-### 5. Lifecycle Control
-
-Each dependency should be defined with its lifecycle:
-
-- `singleton` — executed once and cached (default behavior)
-- `transient` — executed on every resolution
-
-
-Example:
-
-```js
-di.define('logger', [], createLogger, { lifecycle: 'singleton' })
-```
-
-Lifecycle support is planned but not fully implemented yet
-Now by default all dependencies are singletons (executed once and cached).
-Transient lifecycle can be defined now via functional wrapper - fabric that produces a new result on every execution:
-
-```js
-function transient(factory) {
-  return async function(...args) {
-    return factory(...args)
+  constructor({ user }) {
+    this.user = user;
   }
 }
+
+const userView = await di.createClassInstance(UserView);
 ```
+
+The injector extension remains optional.
+Regular classes may exist without any DI-specific metadata.
 
 ---
 
-### 6. Declarative Execution
+# Architecture
 
-Calling:
+The project currently uses a:
 
-```js
-await di.get('app.run')
+```text
+core + extensions + composition root
 ```
 
-triggers resolution of dependencies and execution of the corresponding logic.
+architecture.
 
-The container:
+## Core
 
-1. Resolves dependencies recursively  
-2. Executes them lazily  
-3. Builds and executes a dependency chain  
-4. Returns the final result  
+The core container provides:
 
-This allows dependencies to form meaningful execution flows.
+- low-level dependency registration;
+- dependency resolution;
+- lazy promise execution;
+- registry management.
+
+## Extensions
+
+Optional extensions provide higher-level behavior:
+
+- define syntax extensions;
+- class injector extensions;
+- future tooling and helpers.
+
+## Composition Root
+
+The public container is assembled through:
+
+```text
+src/index.js
+```
+
+using explicit extension composition.
 
 ---
 
-## Basic Usage
+# Examples
 
-### Define Dependencies
+Executable examples are available in:
 
-```js
-di.define('config', [], () => {
-  return { apiUrl: '/api' }
-})
+[`examples/`](./examples/)
 
-di.define('client', ['config'], (config) => {
-  return new ApiClient(config.apiUrl)
-})
-```
+Shared fictional application entities are described in:
+
+[`docs/examples-index.md`](./docs/examples-index.md)
 
 ---
 
-### Resolve Dependencies
+# Documentation
 
-```js
-const client = await di.get('client')
-```
+- [`docs/glossary.md`](./docs/glossary.md)
+- [`docs/roadmap.md`](./docs/roadmap.md)
+- [`docs/changelog.md`](./docs/changelog.md)
+- [`examples/README.md`](./examples/README.md)
 
 ---
 
-### Functional Execution
+# Roadmap
 
-```js
-di.define('app.run', ['client'], async (client) => {
-  await client.initialize()
-})
+The project is still evolving.
 
-await di.get('app.run')
-```
+Planned future directions include:
 
+- dependency expressions;
+- diagnostics and debugging tools;
+- lifecycle support;
+- annotation-based extensions;
+- build-time integration.
+
+See:
+
+[`docs/roadmap.md`](./docs/roadmap.md)
