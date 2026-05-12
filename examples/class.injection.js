@@ -11,12 +11,8 @@ console.log('Example: class injection');
 
 const di = createContainer();
 
-// Register injector extension.
-di.useInjector();
-
-UserView.diKeyMap = {
-  user: 'user',
-};
+// UserView declares its own dependency metadata
+// through the static diKeyMap property.
 
 di.define('app.config', () => {
   return AppConfig;
@@ -50,6 +46,10 @@ di.define('user', [
   return userService.getUser(1);
 });
 
+// The injector reads UserView.diKeyMap,
+// resolves required dependencies from the container,
+// injects them into constructor params,
+// and creates the class instance.
 const userView = await di.createClassInstance(UserView);
 
 console.log(userView.render());
