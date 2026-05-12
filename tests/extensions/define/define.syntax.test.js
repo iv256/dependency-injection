@@ -7,9 +7,7 @@ import {
 
 function createContainerWithDefineSyntax() {
   const di = createCoreContainer();
-
   useDefineSyntax(di);
-
   return di;
 }
 
