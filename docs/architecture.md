@@ -1,145 +1,366 @@
 # Architecture
 
-This document describes the current architecture and execution model of the container.
+This document describes the current runtime execution architecture
+of the *Dependency-Injection* container.
 
-## Purpose
+The purpose of this document is to explain:
 
-This document describes the **architectural principles and design assumptions** behind the *Dependency-Injection* container.
+- how dependency execution works;
+- how runtime resolution behaves;
+- how dependency graphs are executed;
+- how core and extensions interact;
+- how lazy resolution is activated.
 
-It is not a full specification, but a concise set of notes that guide how the system is designed and intended to evolve.
+For terminology definitions see:
 
----
+- [`glossary.md`](./glossary.md)
+- [`README.md`](../README.md)
 
-## Conceptual Model
+Planned and future features are described separately in:
 
-The system is based on the following idea:
+- [`roadmap.md`](./roadmap.md)
 
-Container stores Dependency Definitions (not objects), and returns resolved values, objects, functions, as a promise. 
-Depending on lifecycle (e.g. Singleton or Transient) it may cache results or re-execute definitions on demand
+Examples and fictional shared entities are described in:
 
-More formally:
-
-Definition describes how to produce a Resolution Result.
-
-DependencyExpression describes how to resolve dependencies and obtain its results as a factory arguments.
-
-Access to contained (via `di.get(key)`) starts lazy resolution of a Definition.
-
-Lifecycle controls caching or re-execution of the Resolution Result.
+- [`examples-index.md`](./examples-index.md)
+- [`../examples/README.md`](../examples/README.md)
 
 ---
 
-## Core Terminology
+# Architectural Goal
 
-### Container
+The container is designed as a:
 
-A runtime object that stores dependency definitions and resolves them on demand.
+```text
+lazy promise-based dependency execution runtime
+```
 
----
+The system is built around executable dependency definitions,
+lazy activation, asynchronous resolution, and runtime dependency graphs.
 
-### Key
+Unlike traditional dependency injection containers focused primarily on object construction,
+this container treats dependencies as executable runtime units.
 
-A **string identifier** of a dependency.
+The architecture is designed to support:
 
-- Keys are **flat (single-level)**
-- The container is a flat map
-- Semantic grouping via `.` is allowed
+- lazy dependency execution;
+- asynchronous infrastructure activation;
+- executable runtime flows;
+- deferred application assembly;
+- runtime graph execution.
 
-Example:
+The system is also designed to remain flexible and minimally intrusive.
 
-services.userService
-queries.fetchUserData
-app.run
-
----
-
-### Dependency Definition
-
-A record stored in the container:
-
-key + dependencyExpression + factory + options
-
-It describes how to produce a result.
+The container may coexist with regular JavaScript classes,
+functions, modules, and application code that do not know
+anything about the container itself.
 
 ---
 
-### Dependency Expression
+# High-Level Runtime Model
 
-A declarative description of dependencies.
+The runtime model is based on the following flow:
 
-It defines how factory arguments are resolved.
+```text
+di.define(...)
+    ↓
+Dependency Definition
+    ↓
+Container Registry
+    ↓
 
-Common forms:
+di.get(...)
+    ↓
+Lazy Resolution Handle
+    ↓
 
-'service.key'        // alias for di.ref('service.key')
-di.ref('service.key')
-di.value(value)
-di.lazy(fn)
-di.all([...])
+await / then
+    ↓
+Resolution Activation
+    ↓
 
-Dependency expressions may be simple or composed and can be extended.
+Dependency Resolver
+    ↓
+Dependency Graph Execution
+    ↓
+Factory Execution
+    ↓
+Resolved Result
+```
 
 ---
 
-### Factory
+# Core Runtime Principle
 
-A function that produces the result of a dependency.
+The container separates:
 
----
+```text
+dependency registration
+```
 
-### Lifecycle
+from:
 
-Controls how often a dependency is executed:
+```text
+dependency execution
+```
 
-singleton — executed once and cached
-transient — executed on every resolution
+Dependencies are registered lazily:
 
----
+```js
+di.define(key, dependencies, factory)
+```
 
-### Resolution
+and executed only after explicit activation:
 
-The process of obtaining a result:
-
+```js
 await di.get(key)
+```
+
+More precisely:
+
+```text
+di.get(...)
+```
+
+returns:
+
+```text
+Lazy Resolution Handle
+```
+
+Execution starts only after:
+
+```text
+await
+.then(...)
+.catch(...)
+.finally(...)
+```
+
+activation.
 
 ---
 
-## Define API
+# Runtime Execution Pipeline
 
-Core function:
-
-di.define(key, dependencyExpression, factory, options)
-
-### Parameters
-
-#### key
-
-string
-
-Flat identifier.
+The runtime execution model consists of several phases.
 
 ---
 
-#### dependencyExpression
+## 1. Definition Phase
 
-DependencyExpression | DependencyExpression[]
+A dependency is described through:
 
-Describes dependencies.
+```js
+di.define(key, dependencies, factory)
+```
+
+At this stage:
+
+- nothing is executed;
+- dependencies are not resolved;
+- factories are not called.
+
+Only metadata is registered.
 
 ---
 
-#### factory
+## 2. Registration Phase
 
-function(...resolvedDeps) → result
+The container stores a:
 
-Produces the final result.
+```text
+Dependency Definition
+```
+
+inside the internal registry.
+
+The stored definition contains:
+
+```text
+key
+dependencies
+factory
+options
+```
+
+The container stores definitions,
+not resolved objects.
 
 ---
 
-#### options
+## 3. Access Phase
 
-Metadata:
+A dependency is requested through:
 
-{
-  lifecycle: 'singleton' | 'transient'
-}
+```js
+di.get(key)
+```
+
+The container returns:
+
+```text
+Lazy Resolution Handle
+```
+
+At this stage:
+
+- resolution is still not started;
+- dependencies are not executed;
+- factories are not called.
+
+---
+
+## 4. Activation Phase
+
+Resolution starts only after activation:
+
+```js
+await di.get(key)
+```
+
+or:
+
+```js
+di.get(key).then(...)
+```
+
+Activation transfers execution control to the resolver.
+
+---
+
+## 5. Resolution Phase
+
+The resolver:
+
+- loads the dependency definition;
+- resolves dependency expressions;
+- recursively resolves nested dependencies;
+- builds the execution graph;
+- prepares resolved dependency results.
+
+Runtime execution forms a dependency graph:
+
+```text
+app.config ──┐
+             ├── api.client ──┐
+logger ──────┘                │
+                              ├── user.service ──┐
+                              │                  │
+                              │                  ├── user ──┐
+                              │                  │          │
+                              │                  │          ├── user.view
+                              │                  │          │
+                              │                  │          └── profile.page.view
+                              │                  │
+                              │                  └── photos ──┐
+                              │                               │
+                              │                               ├── photo.view
+                              │                               │
+                              │                               └── profile.page.view
+```
+
+The graph is executed lazily and recursively.
+
+---
+
+## 6. Factory Execution Phase
+
+After dependencies are resolved,
+the resolver executes the factory:
+
+```text
+factory(...resolvedDependencies)
+```
+
+Resolved dependency results are passed as factory arguments.
+
+Factories may return:
+
+- object;
+- class instance;
+- promise;
+- function;
+- async function;
+- executable runtime logic.
+
+---
+
+# Dependency Graph Model
+
+The container internally behaves as a:
+
+```text
+lazy executable dependency graph
+```
+
+Dependencies form execution chains.
+
+A dependency may trigger execution of:
+
+- nested dependencies;
+- asynchronous resources;
+- executable flows;
+- functional runtime composition.
+
+The execution graph is assembled dynamically during resolution.
+
+---
+
+# Core / Extensions / Composition Root
+
+The project currently uses a:
+
+```text
+core + extensions + composition root
+```
+
+architecture.
+
+The core runtime owns:
+
+- dependency registration;
+- dependency resolution;
+- registry management;
+- lazy execution semantics;
+- runtime graph execution.
+
+Extensions provide optional higher-level behavior around the runtime core.
+
+Examples:
+
+- define syntax helpers;
+- class injection;
+- future diagnostics;
+- future annotation layers.
+
+The public container is assembled through:
+
+```text
+src/index.js
+```
+
+using explicit extension composition.
+
+Conceptually:
+
+```text
+createContainer()
+    ↓
+createCoreContainer()
+    ↓
+apply extensions
+    ↓
+return configured public container
+```
+
+---
+
+# References
+
+- [`README.md`](../README.md)
+- [`glossary.md`](./glossary.md)
+- [`examples-index.md`](./examples-index.md)
+- [`../examples/README.md`](../examples/README.md)
+- [`roadmap.md`](./roadmap.md)
+- [`changelog.md`](./changelog.md)
