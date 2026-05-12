@@ -6,6 +6,12 @@ import {
   useInjector,
 } from '../../../src/index.js';
 
+function createContainerWithInjector() {
+  const di = createCoreContainer();
+  useInjector(di);
+  return di;
+}
+
 describe('di.injector extension', () => {
   it('does not add class injector methods to core container by default', () => {
     const di = createCoreContainer();
@@ -15,7 +21,7 @@ describe('di.injector extension', () => {
   });
 
   it('adds createClassInstance method when injector extension is applied', () => {
-    const di = createCoreContainer();
+    const di = createContainerWithInjector();
 
     useInjector(di);
 
@@ -23,7 +29,7 @@ describe('di.injector extension', () => {
   });
 
   it('adds deprecated createInstance alias when injector extension is applied', () => {
-    const di = createCoreContainer();
+    const di = createContainerWithInjector();
 
     useInjector(di);
 
@@ -31,14 +37,14 @@ describe('di.injector extension', () => {
   });
 
   it('adds class injector methods to public container by default', () => {
-    const di = createContainer();
+    const di = createContainerWithInjector();
 
     expect(typeof di.createClassInstance).toBe('function');
     expect(typeof di.createInstance).toBe('function');
   });
 
   it('creates instance of a simple class', async () => {
-    const di = createContainer();
+    const di = createContainerWithInjector();
 
     class Service {
       constructor(params = {}) {
@@ -55,9 +61,9 @@ describe('di.injector extension', () => {
   });
 
   it('creates instance with dependency resolved from DI container', async () => {
-    const di = createContainer();
+    const di = createContainerWithInjector();
 
-    di.define('config', () => {
+    di.define('config', [], () => {
       return {
         apiUrl: '/api',
       };
@@ -82,9 +88,9 @@ describe('di.injector extension', () => {
   });
 
   it('injects dependency using different param name and DI key', async () => {
-    const di = createContainer();
+    const di = createContainerWithInjector();
 
-    di.define('app.config', () => {
+    di.define('app.config', [], () => {
       return {
         apiUrl: '/api',
       };
@@ -108,9 +114,9 @@ describe('di.injector extension', () => {
   });
 
   it('injects dependency into nested params path using dot notation', async () => {
-    const di = createContainer();
+    const di = createContainerWithInjector();
 
-    di.define('app.config', () => {
+    di.define('app.config', [], () => {
       return {
         apiUrl: '/api',
       };
@@ -134,9 +140,9 @@ describe('di.injector extension', () => {
   });
 
   it('injects one dependency into multiple params paths', async () => {
-    const di = createContainer();
+    const di = createContainerWithInjector();
 
-    di.define('logger', () => {
+    di.define('logger', [], () => {
       return {
         name: 'app-logger',
       };
@@ -170,9 +176,9 @@ describe('di.injector extension', () => {
   });
 
   it('preserves existing params and injects dependency into nested path', async () => {
-    const di = createContainer();
+    const di = createContainerWithInjector();
 
-    di.define('app.config', () => {
+    di.define('app.config', [], () => {
       return {
         apiUrl: '/api',
       };
@@ -203,7 +209,7 @@ describe('di.injector extension', () => {
   });
 
   it('supports deprecated createInstance alias', async () => {
-    const di = createContainer();
+    const di = createContainerWithInjector();
 
     class Service {
       constructor(params = {}) {
@@ -220,7 +226,7 @@ describe('di.injector extension', () => {
   });
 
   it('throws when diKeyMap contains invalid target path', async () => {
-    const di = createContainer();
+    const di = createContainerWithInjector();
 
     class Service {
       static diKeyMap = {
