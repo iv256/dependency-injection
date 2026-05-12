@@ -31,7 +31,7 @@ Each example demonstrates a separate dependency resolution scenario.
 
 # Available Examples
 
-## [`simple.dependency.js`](./simple.dependency.js)
+## [`dependency-simple.js`](./dependency-simple.js)
 
 Demonstrates:
 
@@ -42,12 +42,12 @@ Demonstrates:
 Run:
 
 ```bash
-npm run example:simple-dependency
+npm run example:dependency-simple
 ```
 
 ---
 
-## [`dependency.list.js`](./dependency.list.js)
+## [`dependency-list.js`](./dependency-list.js)
 
 Demonstrates:
 
@@ -63,7 +63,7 @@ npm run example:dependency-list
 
 ---
 
-## [`dependency.chain.js`](./dependency.chain.js)
+## [`dependency-chain.js`](./dependency-chain.js)
 
 Demonstrates:
 
@@ -79,7 +79,7 @@ npm run example:dependency-chain
 
 ---
 
-## [`functional.dependency.js`](./functional.dependency.js)
+## [`dependency-functional.js`](./dependency-functional.js)
 
 Demonstrates:
 
@@ -90,12 +90,12 @@ Demonstrates:
 Run:
 
 ```bash
-npm run example:functional-dependency
+npm run example:dependency-functional
 ```
 
 ---
 
-## [`class.injection.js`](./class.injection.js)
+## [`dependency-class-injection.js`](./dependency-class-injection.js)
 
 Demonstrates:
 
@@ -107,5 +107,5 @@ Demonstrates:
 Run:
 
 ```bash
-npm run example:class-injection
+npm run example:dependency-class-injection
 ```

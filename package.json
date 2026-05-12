@@ -1,7 +1,7 @@
 {
   "name": "dependency-injection",
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "main": "src/index.js",
   "scripts": {
     "lint": "eslint . -c .dev-tools/eslint.config.js",
@@ -10,11 +10,11 @@
     "format": "prettier --write . --config .dev-tools/prettier.config.js",
     "doc": "jsdoc -c .dev-tools/jsdoc.json",
 
-    "example:simple-dependency": "node examples/simple.dependency.js",
-    "example:dependency-list": "node examples/dependency.list.js",
-    "example:dependency-chain": "node examples/dependency.chain.js",
-    "example:functional-dependency": "node examples/functional.dependency.js",
-    "example:class-injection": "node examples/class.injection.js",
+    "example:dependency-simple": "node examples/dependency-simple.js",
+    "example:dependency-list": "node examples/dependency-list.js",
+    "example:dependency-chain": "node examples/dependency-chain.js",
+    "example:dependency-functional": "node examples/dependency-functional.js",
+    "example:dependency-class-injection": "node examples/dependency-class-injection.js",
 
     "test": "vitest",
     "test:run": "vitest run"
