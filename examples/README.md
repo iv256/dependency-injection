@@ -5,15 +5,11 @@ various dependency injection scenarios.
 
 The examples use the shared fictional application described in:
 
-```text
-../docs/examples-index.md
-```
+[`docs/examples-index.md`](../docs/examples-index.md)
 
 Shared example entities are located in:
 
-```text
-./shared/
-```
+[`shared/`](./shared/)
 
 The examples use the public DI container created through
 the composition root:
@@ -35,7 +31,7 @@ Each example demonstrates a separate dependency resolution scenario.
 
 # Available Examples
 
-## simple.dependency.js
+## [`simple.dependency.js`](./simple.dependency.js)
 
 Demonstrates:
 
@@ -51,7 +47,7 @@ npm run example:simple-dependency
 
 ---
 
-## dependency.list.js
+## [`dependency.list.js`](./dependency.list.js)
 
 Demonstrates:
 
@@ -67,7 +63,7 @@ npm run example:dependency-list
 
 ---
 
-## dependency.chain.js
+## [`dependency.chain.js`](./dependency.chain.js)
 
 Demonstrates:
 
@@ -83,7 +79,7 @@ npm run example:dependency-chain
 
 ---
 
-## functional.dependency.js
+## [`functional.dependency.js`](./functional.dependency.js)
 
 Demonstrates:
 
@@ -99,7 +95,7 @@ npm run example:functional-dependency
 
 ---
 
-## class.injection.js
+## [`class.injection.js`](./class.injection.js)
 
 Demonstrates:
 
