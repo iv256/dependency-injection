@@ -39,6 +39,7 @@ This document describes major development progress and architectural changes acr
 - Added tests for async factories
 - Added tests for syntax validation
 - Added tests for class injector behavior
+- Added tests for constructor injection edge cases
 
 ### Notes
 
@@ -47,43 +48,48 @@ This document describes major development progress and architectural changes acr
 
 ---
 
-## v0.3.0 — Core Refactoring
+## v0.3.0 — Core Refactoring and Injector Evolution
 
 ### Progress
 
-- The library architecture was separated into:
+- Separated architecture into:
   - core;
   - extensions;
   - composition root.
 
-- The core contains the minimal low-level container functionality.
-- Extensions provide optional behavior through `useExtension(...)` style composition.
-- Composition root performs explicit assembly of the final public container.
-
 #### Core
 
-- Isolated core container architecture
 - Introduced `createCoreContainer()`
 - Introduced `createContainer()`
+- Isolated `lazy.promise`
 - Preserved strict low-level `define(...)`
 - Preserved core `get(...)`
-- Preserved core `lazy(...)`
-- Isolated `lazy.promise` as a low-level primitive
 
 #### Extensions
 
-- Moved flexible define syntax into extension layer
-- Moved injector logic into optional extension layer
 - Introduced `useDefineSyntax(...)`
 - Introduced `useInjector(...)`
+- Moved injector logic into optional extension layer
+
+#### Injector Evolution
+
+- Introduced `diInject`
+- Preserved deprecated `diKeyMap`
+- Introduced multi-argument constructor injection
+- Introduced nested-in-argument injection
+- Introduced direct-argument injection
+- Added injection descriptor validation
+- Added nested path conflict validation
+- Added direct injection conflict validation
+- Improved injector normalization pipeline
+- Improved injector runtime documentation
+- Added implementation workflow documentation
 
 #### Composition Root
 
-- Introduced composition root assembly through `src/index.js`
-- Core container is now extended through explicit extension composition
+- Introduced explicit extension composition through `src/index.js`
 
 ### Notes
 
 - The architecture is moving toward a `core + extensions` model.
-- The core container is being isolated from optional syntax and tooling layers.
-- Extensions extend the core container explicitly through composition.
+- The injector evolved into a constructor argument composition engine.
