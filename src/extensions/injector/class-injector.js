@@ -11,104 +11,138 @@
  * runtime structures with dependencies resolved from the DI container.
  *
  * The injector is designed around constructor argument injection.
- * It supports two main forms:
  *
- * 1. Single-argument injection.
+ * There are two independent design axes:
  *
- *    This is the default and most common form. Dependencies are injected into
- *    the first constructor argument, which is treated as an object params
- *    argument.
+ * 1. Constructor argument selection:
  *
- *    Example:
+ *    - Single-argument injection:
+ *      Shorthand form. Dependencies are injected into constructor argument 0.
  *
- *    class UserView {
- *      static diInject = {
- *        'user': 'user',
- *        'logger': 'services.logger'
- *      };
+ *    - Multi-argument injection:
+ *      Explicit form. Top-level metadata keys are constructor argument indexes.
  *
- *      constructor(params = {}) {
- *        this.user = params.user;
- *        this.logger = params.services.logger;
- *      }
- *    }
+ * 2. Injection mode inside a selected constructor argument:
  *
- *    await di.createClassInstance(UserView, {
- *      viewId: 'main-user-view'
- *    });
+ *    - Nested-in-argument injection:
+ *      A resolved dependency is inserted into a path inside an object argument.
  *
- *    The constructor receives:
+ *    - Direct-argument injection:
+ *      A resolved dependency becomes the whole constructor argument value.
  *
- *    {
- *      viewId: 'main-user-view',
- *      user: resolvedUser,
- *      services: {
- *        logger: resolvedLogger
- *      }
- *    }
+ * Single-argument nested-in-argument injection example:
  *
- * 2. Multi-argument injection.
+ * class UserView {
+ *   static diInject = {
+ *     'user': 'user',
+ *     'logger': 'services.logger'
+ *   };
  *
- *    This form allows dependencies to be injected into object params located
- *    at specific constructor argument indexes.
+ *   constructor(params = {}) {
+ *     this.user = params.user;
+ *     this.logger = params.services.logger;
+ *   }
+ * }
  *
- *    Example:
+ * await di.createClassInstance(UserView, {
+ *   viewId: 'main-user-view'
+ * });
  *
- *    class Widget {
- *      static diInject = {
- *        0: {
- *          'config': 'config'
- *        },
- *        2: {
- *          'logger': 'logger'
- *        }
- *      };
+ * The constructor receives:
  *
- *      constructor(params = {}, options, services = {}) {
- *        this.config = params.config;
- *        this.logger = services.logger;
- *      }
- *    }
+ * {
+ *   viewId: 'main-user-view',
+ *   user: resolvedUser,
+ *   services: {
+ *     logger: resolvedLogger
+ *   }
+ * }
  *
- *    await di.createClassInstance(Widget, {
- *      widgetId: 'main-widget'
- *    });
+ * Multi-argument nested-in-argument injection example:
  *
- *    Internally the injector prepares constructor args and calls:
+ * class Widget {
+ *   static diInject = {
+ *     0: {
+ *       'config': 'config'
+ *     },
+ *     2: {
+ *       'logger': 'logger'
+ *     }
+ *   };
  *
- *    new Widget(
- *      { widgetId: 'main-widget', config: resolvedConfig },
- *      undefined,
- *      { logger: resolvedLogger }
- *    )
+ *   constructor(params = {}, options, services = {}) {
+ *     this.config = params.config;
+ *     this.logger = services.logger;
+ *   }
+ * }
  *
- * The current injector supports nested-in-argument injection. This means that
- * dependencies are injected into object arguments using dot-separated paths.
- * Direct-argument injection, where a dependency becomes the entire constructor
- * argument value, is intentionally not implemented yet.
+ * await di.createClassInstance(Widget, {
+ *   widgetId: 'main-widget'
+ * });
+ *
+ * Internally the injector prepares constructor args and calls:
+ *
+ * new Widget(
+ *   { widgetId: 'main-widget', config: resolvedConfig },
+ *   undefined,
+ *   { logger: resolvedLogger }
+ * )
+ *
+ * Multi-argument direct-argument injection example:
+ *
+ * class DatabaseClient {
+ *   static diInject = {
+ *     0: {
+ *       'config': 'config'
+ *     },
+ *     1: 'db.connector',
+ *     2: {
+ *       'logger': 'logger'
+ *     }
+ *   };
+ *
+ *   constructor(params = {}, dbConnector, services = {}) {
+ *     this.config = params.config;
+ *     this.dbConnector = dbConnector;
+ *     this.logger = services.logger;
+ *   }
+ * }
+ *
+ * Internally the injector prepares constructor args and calls:
+ *
+ * new DatabaseClient(
+ *   { config: resolvedConfig },
+ *   resolvedDbConnector,
+ *   { logger: resolvedLogger }
+ * )
+ *
+ * The syntax contrast is intentional:
+ *
+ * {
+ *   'db.connector': 'db'
+ * }
+ *
+ * means:
+ *
+ * - single-argument injection;
+ * - nested-in-argument injection;
+ * - inject resolved `db.connector` into `args[0].db`.
+ *
+ * {
+ *   0: 'db.connector'
+ * }
+ *
+ * means:
+ *
+ * - multi-argument injection;
+ * - direct-argument injection;
+ * - make `args[0]` equal to resolved `db.connector`.
  *
  * Deprecated compatibility:
  *
  * The old static metadata name `diKeyMap` is still supported as a deprecated
- * alias for the default single-argument `diInject` form.
- *
- * Example:
- *
- * class LegacyView {
- *   static diKeyMap = {
- *     'config': 'config'
- *   };
- * }
- *
- * is treated as:
- *
- * class LegacyView {
- *   static diInject = {
- *     'config': 'config'
- *   };
- * }
- *
- * New code should use `diInject`.
+ * alias for the default single-argument `diInject` form. New code should use
+ * `diInject`.
  *
  * Implementation workflow:
  *
@@ -127,13 +161,20 @@
  *     │
  *     ├── single-argument injection
  *     │       ↓
- *     │   normalize to argument 0 injection map
+ *     │   normalize to argument 0 nested-in-argument injection map
  *     │
  *     └── multi-argument injection
  *             ↓
  *         keep explicit constructor argument indexes
  *     ↓
- * validate nested-in-argument injection maps
+ * detect injection mode for each constructor argument:
+ *     ├── object value
+ *     │       ↓
+ *     │   nested-in-argument injection
+ *     │
+ *     └── string value
+ *             ↓
+ *         direct-argument injection
  *     ↓
  * resolveConstructorInjectionDependencies(di, constructorInjectionMap)
  *     ↓
@@ -156,6 +197,10 @@
  * - Nested-in-argument injection:
  *   A dependency is inserted into a nested path inside an object argument,
  *   for example into `params.services.logger`.
+ *
+ * - Direct-argument injection:
+ *   A dependency becomes the whole constructor argument value, for example
+ *   `constructor(params, dbConnector)` where `dbConnector` is resolved from DI.
  *
  * - Plain object:
  *   A normal object used as an object params container, for example:
@@ -208,6 +253,34 @@ function isPlainObject(value) {
  */
 function isConstructorArgumentIndexKey(key) {
   return /^(0|[1-9]\d*)$/.test(key);
+}
+
+
+/**
+ * Checks whether a constructor argument injection descriptor is direct.
+ *
+ * In direct-argument injection, the descriptor is a DI dependency key string.
+ * The resolved dependency becomes the whole constructor argument value.
+ *
+ * @param {*} descriptor - Constructor argument injection descriptor.
+ * @returns {boolean} True when descriptor is direct-argument injection.
+ */
+function isDirectArgumentInjectionDescriptor(descriptor) {
+  return typeof descriptor === 'string';
+}
+
+
+/**
+ * Checks whether a constructor argument injection descriptor is nested.
+ *
+ * In nested-in-argument injection, the descriptor is a map where keys are DI
+ * dependency keys and values are target paths inside an object argument.
+ *
+ * @param {*} descriptor - Constructor argument injection descriptor.
+ * @returns {boolean} True when descriptor is nested-in-argument injection.
+ */
+function isNestedInArgumentInjectionDescriptor(descriptor) {
+  return isPlainObject(descriptor);
 }
 
 
@@ -293,7 +366,10 @@ function isSingleArgumentInjectionMap(injectionMetadata) {
  * Checks whether injection metadata uses multi-argument injection form.
  *
  * In this form top-level metadata keys are constructor argument indexes.
- * Each value is an injection map for that constructor argument.
+ * Each value is either:
+ *
+ * - an object map for nested-in-argument injection;
+ * - a string DI key for direct-argument injection.
  *
  * @param {Object} injectionMetadata - Injection metadata.
  * @returns {boolean} True when metadata is a multi-argument injection map.
@@ -338,6 +414,43 @@ function validateNestedInArgumentInjectionMap(injectionMap) {
 
 
 /**
+ * Validates direct-argument injection descriptor.
+ *
+ * @param {string} depKey - DI dependency key used as direct argument value.
+ * @throws {Error} If dependency key is invalid.
+ */
+function validateDirectArgumentInjectionDescriptor(depKey) {
+  if (typeof depKey !== 'string' || depKey.length === 0) {
+    throw new Error('DependencyInjection: Direct argument injection key must be a non-empty string.');
+  }
+}
+
+
+/**
+ * Validates one constructor argument injection descriptor.
+ *
+ * @param {*} descriptor - Constructor argument injection descriptor.
+ * @param {string} argIndex - Constructor argument index.
+ * @throws {Error} If descriptor is invalid.
+ */
+function validateConstructorArgumentInjectionDescriptor(descriptor, argIndex) {
+  if (isDirectArgumentInjectionDescriptor(descriptor)) {
+    validateDirectArgumentInjectionDescriptor(descriptor);
+    return;
+  }
+
+  if (isNestedInArgumentInjectionDescriptor(descriptor)) {
+    validateNestedInArgumentInjectionMap(descriptor);
+    return;
+  }
+
+  throw new Error(
+    `DependencyInjection: Invalid injection descriptor for constructor argument ${argIndex}.`
+  );
+}
+
+
+/**
  * Normalizes class injection metadata to canonical constructor argument form.
  *
  * Supported input forms:
@@ -356,10 +469,11 @@ function validateNestedInArgumentInjectionMap(injectionMap) {
  *      }
  *    }
  *
- * 2. Multi-argument form:
+ * 2. Multi-argument form with nested and direct descriptors:
  *
  *    {
  *      0: { 'config': 'config' },
+ *      1: 'db.connector',
  *      2: { 'logger': 'logger' }
  *    }
  *
@@ -399,7 +513,10 @@ function normalizeConstructorInjectionMap(Class) {
 
   if (isMultiArgumentInjectionMap(injectionMetadata)) {
     for (const argIndex of keys) {
-      validateNestedInArgumentInjectionMap(injectionMetadata[argIndex]);
+      validateConstructorArgumentInjectionDescriptor(
+        injectionMetadata[argIndex],
+        argIndex
+      );
     }
 
     return injectionMetadata;
@@ -422,7 +539,13 @@ async function resolveConstructorInjectionDependencies(di, constructorInjectionM
   const depKeys = [
     ...new Set(
       Object.values(constructorInjectionMap)
-        .flatMap(injectionMap => Object.keys(injectionMap))
+        .flatMap(descriptor => {
+          if (isDirectArgumentInjectionDescriptor(descriptor)) {
+            return [descriptor];
+          }
+
+          return Object.keys(descriptor);
+        })
     ),
   ];
 
@@ -435,49 +558,146 @@ async function resolveConstructorInjectionDependencies(di, constructorInjectionM
 
 
 /**
+ * Injects resolved dependencies into one constructor object argument.
+ *
+ * @param {Array} args - Constructor arguments.
+ * @param {number} numericArgIndex - Constructor argument index.
+ * @param {string} argIndex - Constructor argument index as metadata key.
+ * @param {Object} resolvedKeyDeps - Resolved dependency values by dependency key.
+ * @param {Object} injectionMap - Nested-in-argument injection map.
+ * @throws {Error} If target argument is already defined and is not an object.
+ */
+function injectNestedDependenciesIntoConstructorArg(args, numericArgIndex, argIndex, resolvedKeyDeps, injectionMap) {
+  if (args[numericArgIndex] === undefined) {
+    args[numericArgIndex] = {};
+  }
+
+  if (!isPlainObject(args[numericArgIndex])) {
+    throw new Error(
+      `DependencyInjection: Constructor argument ${argIndex} is not valid for nested-in-argument injection.`
+    );
+  }
+
+  for (const depKey of Object.keys(injectionMap)) {
+    if (!(depKey in resolvedKeyDeps)) {
+      throw new Error(`DependencyInjection: Required dependency "${depKey}" is missing.`);
+    }
+
+    const value = resolvedKeyDeps[depKey];
+    const targets = Array.isArray(injectionMap[depKey])
+      ? injectionMap[depKey]
+      : [injectionMap[depKey]];
+
+    for (const path of targets) {
+      injectPathIntoObject(args[numericArgIndex], path, value);
+    }
+  }
+}
+
+
+/**
+ * Injects one resolved dependency as the entire constructor argument value.
+ *
+ * Direct-argument injection does not merge objects and does not create nested
+ * paths. The target constructor argument slot must be empty.
+ *
+ * @param {Array} args - Constructor arguments.
+ * @param {number} numericArgIndex - Constructor argument index.
+ * @param {string} argIndex - Constructor argument index as metadata key.
+ * @param {Object} resolvedKeyDeps - Resolved dependency values by dependency key.
+ * @param {string} depKey - Dependency key to inject directly.
+ * @throws {Error} If target argument already has a value.
+ */
+function injectDirectDependencyIntoConstructorArg(args, numericArgIndex, argIndex, resolvedKeyDeps, depKey) {
+  if (args[numericArgIndex] !== undefined) {
+    throw new Error(
+      `DependencyInjection: Constructor argument ${argIndex} already has a value and cannot receive direct-argument injection.`
+    );
+  }
+
+  if (!(depKey in resolvedKeyDeps)) {
+    throw new Error(`DependencyInjection: Required dependency "${depKey}" is missing.`);
+  }
+
+  args[numericArgIndex] = resolvedKeyDeps[depKey];
+}
+
+
+/**
  * Injects resolved dependencies into constructor arguments.
  *
- * Each constructor argument that receives nested-in-argument injection is
- * treated as an object. Missing argument objects are created automatically.
+ * Each constructor argument descriptor can use one of two modes:
+ *
+ * - object descriptor: nested-in-argument injection;
+ * - string descriptor: direct-argument injection.
  *
  * @param {Array} args - Constructor arguments.
  * @param {Object} resolvedKeyDeps - Resolved dependency values by dependency key.
  * @param {Object} constructorInjectionMap - Canonical constructor argument injection map.
  * @returns {Array} Mutated constructor arguments.
- * @throws {Error} If target argument is already defined and is not an object.
  */
 function injectResolvedDependenciesIntoConstructorArgs(args, resolvedKeyDeps, constructorInjectionMap) {
   for (const argIndex of Object.keys(constructorInjectionMap)) {
     const numericArgIndex = Number(argIndex);
-    const injectionMap = constructorInjectionMap[argIndex];
+    const descriptor = constructorInjectionMap[argIndex];
 
-    if (args[numericArgIndex] === undefined) {
-      args[numericArgIndex] = {};
-    }
-
-    if (!isPlainObject(args[numericArgIndex])) {
-      throw new Error(
-        `DependencyInjection: Constructor argument ${argIndex} is not valid for nested-in-argument injection.`
+    if (isDirectArgumentInjectionDescriptor(descriptor)) {
+      injectDirectDependencyIntoConstructorArg(
+        args,
+        numericArgIndex,
+        argIndex,
+        resolvedKeyDeps,
+        descriptor
       );
+      continue;
     }
 
-    for (const depKey of Object.keys(injectionMap)) {
-      if (!(depKey in resolvedKeyDeps)) {
-        throw new Error(`DependencyInjection: Required dependency "${depKey}" is missing.`);
-      }
-
-      const value = resolvedKeyDeps[depKey];
-      const targets = Array.isArray(injectionMap[depKey])
-        ? injectionMap[depKey]
-        : [injectionMap[depKey]];
-
-      for (const path of targets) {
-        injectPathIntoObject(args[numericArgIndex], path, value);
-      }
-    }
+    injectNestedDependenciesIntoConstructorArg(
+      args,
+      numericArgIndex,
+      argIndex,
+      resolvedKeyDeps,
+      descriptor
+    );
   }
 
   return args;
+}
+
+
+/**
+ * Checks whether constructor injection map uses direct injection for argument 0.
+ *
+ * @param {Object} constructorInjectionMap - Canonical constructor argument injection map.
+ * @returns {boolean} True when argument 0 receives direct-argument injection.
+ */
+function hasDirectInjectionForFirstArgument(constructorInjectionMap) {
+  return isDirectArgumentInjectionDescriptor(constructorInjectionMap[0]);
+}
+
+
+/**
+ * Creates initial constructor arguments array.
+ *
+ * The previous public API treated the second argument of createClassInstance as
+ * constructor argument 0. This behavior is preserved unless argument 0 is going
+ * to receive direct-argument injection and no explicit params were passed.
+ *
+ * @param {boolean} hasExplicitParams - Whether user passed params explicitly.
+ * @param {Object} params - Constructor argument 0 object.
+ * @param {Object} constructorInjectionMap - Canonical constructor argument injection map.
+ * @returns {Array} Initial constructor arguments.
+ */
+function createInitialConstructorArgs(hasExplicitParams, params, constructorInjectionMap) {
+  if (hasExplicitParams) {
+    return [params];
+  }
+
+  if (hasDirectInjectionForFirstArgument(constructorInjectionMap)) {
+    return [];
+  }
+
+  return [{}];
 }
 
 
@@ -503,7 +723,12 @@ export async function createClassInstance(di, Class, params = {}) {
   }
 
   const constructorInjectionMap = normalizeConstructorInjectionMap(Class);
-  const args = [params];
+  const hasExplicitParams = arguments.length >= 3;
+  const args = createInitialConstructorArgs(
+    hasExplicitParams,
+    params,
+    constructorInjectionMap
+  );
 
   if (Object.keys(constructorInjectionMap).length > 0) {
     const resolvedKeyDeps = await resolveConstructorInjectionDependencies(
@@ -533,7 +758,11 @@ export async function createClassInstance(di, Class, params = {}) {
  * @returns {Promise<Object>} Created class instance.
  */
 export async function createInstance(di, Class, params = {}) {
-  return createClassInstance(di, Class, params);
+  if (arguments.length >= 3) {
+    return createClassInstance(di, Class, params);
+  }
+
+  return createClassInstance(di, Class);
 }
 
 
@@ -557,8 +786,12 @@ export function useInjector(di) {
     configurable: true,
     enumerable: false,
     writable: false,
-    value(Class, params = {}) {
-      return createClassInstance(di, Class, params);
+    value(Class, params) {
+      if (arguments.length >= 2) {
+        return createClassInstance(di, Class, params);
+      }
+
+      return createClassInstance(di, Class);
     },
   });
 
@@ -566,8 +799,12 @@ export function useInjector(di) {
     configurable: true,
     enumerable: false,
     writable: false,
-    value(Class, params = {}) {
-      return createClassInstance(di, Class, params);
+    value(Class, params) {
+      if (arguments.length >= 2) {
+        return createClassInstance(di, Class, params);
+      }
+
+      return createClassInstance(di, Class);
     },
   });
 
