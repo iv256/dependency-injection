@@ -396,6 +396,56 @@ describe('di.injector extension', () => {
     });
   });
 
+  it('throws when nested injection target path already has a value', async () => {
+    const di = createContainerWithInjector();
+
+    di.define('app.config', [], () => {
+      return {
+        apiUrl: '/api',
+      };
+    });
+
+    class Service {
+      static diInject = {
+        'app.config': 'services.config',
+      };
+    }
+
+    await expect(
+      di.createClassInstance(Service, {
+        services: {
+          config: 'already-exists',
+        },
+      })
+    ).rejects.toThrow(
+      'DependencyInjection: Path "services.config" already has a value.'
+    );
+  });
+
+  it('throws when nested injection intermediate path is not an object', async () => {
+    const di = createContainerWithInjector();
+
+    di.define('app.config', [], () => {
+      return {
+        apiUrl: '/api',
+      };
+    });
+
+    class Service {
+      static diInject = {
+        'app.config': 'services.config',
+      };
+    }
+
+    await expect(
+      di.createClassInstance(Service, {
+        services: 'not-an-object',
+      })
+    ).rejects.toThrow(
+      'DependencyInjection: Path "services.config" cannot be created because "services" is not an object.'
+    );
+  });
+
   it('supports deprecated diKeyMap compatibility', async () => {
     const di = createContainerWithInjector();
 
