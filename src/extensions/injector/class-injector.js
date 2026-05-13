@@ -109,11 +109,84 @@
  * }
  *
  * New code should use `diInject`.
+ *
+ * Implementation workflow:
+ *
+ * createClassInstance(di, Class, params)
+ *     ↓
+ * validate Class constructor
+ *     ↓
+ * normalizeConstructorInjectionMap(Class)
+ *     ↓
+ * resolveDeprecatedDiKeyMap(Class)
+ *     ↓
+ * detect injection metadata form:
+ *     ├── no metadata
+ *     │       ↓
+ *     │   no injection, use provided params as constructor argument 0
+ *     │
+ *     ├── single-argument injection
+ *     │       ↓
+ *     │   normalize to argument 0 injection map
+ *     │
+ *     └── multi-argument injection
+ *             ↓
+ *         keep explicit constructor argument indexes
+ *     ↓
+ * validate nested-in-argument injection maps
+ *     ↓
+ * resolveConstructorInjectionDependencies(di, constructorInjectionMap)
+ *     ↓
+ * injectResolvedDependenciesIntoConstructorArgs(args, resolvedKeyDeps, map)
+ *     ↓
+ * new Class(...args)
+ *
+ * Terminology used in this module:
+ *
+ * - Injection metadata:
+ *   Static class metadata that describes which DI dependency keys should be
+ *   resolved and where resolved values should be inserted.
+ *
+ * - Single-argument injection:
+ *   A shorthand form where dependencies are injected into constructor argument 0.
+ *
+ * - Multi-argument injection:
+ *   A form where top-level metadata keys are constructor argument indexes.
+ *
+ * - Nested-in-argument injection:
+ *   A dependency is inserted into a nested path inside an object argument,
+ *   for example into `params.services.logger`.
+ *
+ * - Plain object:
+ *   A normal object used as an object params container, for example:
+ *   `{}`, `{ config: value }`, or `{ services: { logger } }`.
+ *   Arrays, functions, null, strings, and numbers are not valid object params
+ *   containers for nested-in-argument injection.
  */
 
 
 /**
  * Checks whether a value is a plain object.
+ *
+ * In this module, a plain object means a normal object that can be used as a
+ * constructor params container for nested-in-argument injection.
+ *
+ * Valid examples:
+ *
+ * - {}
+ * - { config: value }
+ * - { services: { logger } }
+ *
+ * Invalid examples:
+ *
+ * - null
+ * - []
+ * - function () {}
+ * - 'text'
+ * - 123
+ *
+ * This check prevents the injector from trying to create nested paths inside
+ * values that cannot safely behave as object params containers.
  *
  * @param {*} value - Value to check.
  * @returns {boolean} True when value is a non-null object and not an array.
@@ -181,7 +254,8 @@ function injectPathIntoObject(obj, path, value) {
  * A class must not define both metadata properties at the same time.
  *
  * @param {Function} Class - Class constructor.
- * @returns {Object|undefined} Injection metadata.
+ * @returns {Object|undefined} Injection metadata or undefined when the class
+ * does not declare injection metadata.
  * @throws {Error} If both `diInject` and deprecated `diKeyMap` are defined.
  */
 function resolveDeprecatedDiKeyMap(Class) {
@@ -200,32 +274,32 @@ function resolveDeprecatedDiKeyMap(Class) {
 
 
 /**
- * Checks whether metadata uses the default single-argument injection form.
+ * Checks whether injection metadata uses the default single-argument form.
  *
  * In this form metadata keys are dependency keys and values are target paths
  * inside constructor argument 0.
  *
- * @param {Object} metadata - Injection metadata.
+ * @param {Object} injectionMetadata - Injection metadata.
  * @returns {boolean} True when metadata is a single-argument injection map.
  */
-function isSingleArgumentInjectionMap(metadata) {
-  const keys = Object.keys(metadata);
+function isSingleArgumentInjectionMap(injectionMetadata) {
+  const keys = Object.keys(injectionMetadata);
 
   return keys.every(key => !isConstructorArgumentIndexKey(key));
 }
 
 
 /**
- * Checks whether metadata uses multi-argument injection form.
+ * Checks whether injection metadata uses multi-argument injection form.
  *
  * In this form top-level metadata keys are constructor argument indexes.
  * Each value is an injection map for that constructor argument.
  *
- * @param {Object} metadata - Injection metadata.
+ * @param {Object} injectionMetadata - Injection metadata.
  * @returns {boolean} True when metadata is a multi-argument injection map.
  */
-function isMultiArgumentInjectionMap(metadata) {
-  const keys = Object.keys(metadata);
+function isMultiArgumentInjectionMap(injectionMetadata) {
+  const keys = Object.keys(injectionMetadata);
 
   return keys.length > 0 && keys.every(isConstructorArgumentIndexKey);
 }
@@ -289,41 +363,46 @@ function validateNestedInArgumentInjectionMap(injectionMap) {
  *      2: { 'logger': 'logger' }
  *    }
  *
+ * If injection metadata is undefined, the class does not request injection.
+ * Returning an empty canonical map is safe because createClassInstance(...) then
+ * skips dependency resolution and creates the class with the provided params
+ * as constructor argument 0.
+ *
  * @param {Function} Class - Class constructor.
  * @returns {Object} Canonical constructor argument injection map.
  * @throws {Error} If metadata is invalid or mixed.
  */
 function normalizeConstructorInjectionMap(Class) {
-  const metadata = resolveDeprecatedDiKeyMap(Class);
+  const injectionMetadata = resolveDeprecatedDiKeyMap(Class);
 
-  if (metadata === undefined) {
+  if (injectionMetadata === undefined) {
     return {};
   }
 
-  if (!isPlainObject(metadata)) {
+  if (!isPlainObject(injectionMetadata)) {
     throw new Error(`DependencyInjection: Class "${Class.name}" does not have valid diInject metadata.`);
   }
 
-  const keys = Object.keys(metadata);
+  const keys = Object.keys(injectionMetadata);
 
   if (keys.length === 0) {
     return {};
   }
 
-  if (isSingleArgumentInjectionMap(metadata)) {
-    validateNestedInArgumentInjectionMap(metadata);
+  if (isSingleArgumentInjectionMap(injectionMetadata)) {
+    validateNestedInArgumentInjectionMap(injectionMetadata);
 
     return {
-      0: metadata,
+      0: injectionMetadata,
     };
   }
 
-  if (isMultiArgumentInjectionMap(metadata)) {
+  if (isMultiArgumentInjectionMap(injectionMetadata)) {
     for (const argIndex of keys) {
-      validateNestedInArgumentInjectionMap(metadata[argIndex]);
+      validateNestedInArgumentInjectionMap(injectionMetadata[argIndex]);
     }
 
-    return metadata;
+    return injectionMetadata;
   }
 
   throw new Error(
