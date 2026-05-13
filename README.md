@@ -155,13 +155,30 @@ A dependency may return:
 - async function;
 - executable runtime logic.
 
+A functional dependency can depend on other dependencies and return executable logic.
+
 Example:
 
 ```js
-di.define('format.user.name', [], () => {
+di.define('format.user.profile.title', [
+  'logger',
+], (logger) => {
   return (user) => {
-    return user.name.toUpperCase();
+    logger.debug(`Format profile title for user ${user.id}`);
+
+    return `${user.name}'s profile`;
   };
+});
+
+
+di.define('user.view', [
+  'user',
+  'format.user.profile.title',
+], (user, formatProfileTitle) => {
+  return new UserView({
+    user,
+    title: formatProfileTitle(user),
+  });
 });
 ```
 
@@ -211,27 +228,41 @@ new UserView({
 });
 ```
 
-## Multi-argument and direct injection
+## Multi-argument nested injection
 
-The injector can also inject dependencies into specific constructor arguments.
+Use numeric argument indexes when dependencies must be injected into more than one constructor argument.
 
 ```js
-class ApiClient {
+class ProfilePageView {
   static diInject = {
     0: {
-      'app.config': 'config',
-      'logger': 'logger',
+      'user.view': 'userView',
+    },
+
+    1: {
+      'photo.view': 'photoView',
     },
   };
 
-  constructor({ config, logger }) {
-    this.config = config;
-    this.logger = logger;
+  constructor(userArea = {}, photoArea = {}) {
+    this.userView = userArea.userView;
+    this.photoView = photoArea.photoView;
   }
 }
 ```
 
-A string value at a numeric argument index means direct-argument injection:
+This is equivalent to creating:
+
+```js
+new ProfilePageView(
+  { userView: resolvedUserView },
+  { photoView: resolvedPhotoView }
+);
+```
+
+## Direct-argument injection
+
+A string value at a numeric argument index means direct-argument injection.
 
 ```js
 class UserService {
@@ -251,23 +282,13 @@ This is equivalent to creating:
 new UserService(resolvedApiClient);
 ```
 
-Nested and direct injection can be combined:
+Nested and direct injection can be combined when a constructor needs both object params and direct dependencies.
 
-```js
-class ProfilePageView {
-  static diInject = {
-    0: {
-      'user.view': 'userView',
-      'photo.view': 'photoView',
-    },
-  };
+For more detailed injector behavior see:
 
-  constructor({ userView, photoView }) {
-    this.userView = userView;
-    this.photoView = photoView;
-  }
-}
-```
+- [`docs/architecture.md`](./docs/architecture.md)
+- [`docs/glossary.md`](./docs/glossary.md)
+- [`examples/README.md`](./examples/README.md)
 
 The injector extension remains optional.
 Regular classes may exist without any DI-specific metadata.
