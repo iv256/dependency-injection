@@ -115,15 +115,27 @@ Example:
 ```js
 di.define('app.config', [], () => {
   return {
-    apiUrl: '/api',
+    apiBaseUrl: 'https://api.example.com',
+    userEndpoint: '/users',
+    photoEndpoint: '/photos',
+    requestTimeout: 5000,
   };
+});
+
+
+di.define('logger', [], () => {
+  return new Logger();
 });
 
 
 di.define('api.client', [
   'app.config',
-], (config) => {
-  return new ApiClient(config.apiUrl);
+  'logger',
+], (config, logger) => {
+  return new ApiClient({
+    config,
+    logger,
+  });
 });
 ```
 
@@ -157,19 +169,29 @@ di.define('format.user.name', [], () => {
 
 # Injector Extension
 
-The container supports optional class injection.
+The container supports optional constructor argument injection.
 
-Dependencies may be injected into constructor params through:
+Dependencies may be injected through class metadata:
+
+```js
+static diInject
+```
+
+The old metadata name:
 
 ```js
 static diKeyMap
 ```
 
-Example:
+is deprecated and kept only for backward compatibility.
+
+## Single-argument nested injection
+
+The simplest form injects dependencies into the first constructor argument object.
 
 ```js
 class UserView {
-  static diKeyMap = {
+  static diInject = {
     'user': 'user',
   };
 
@@ -179,6 +201,72 @@ class UserView {
 }
 
 const userView = await di.createClassInstance(UserView);
+```
+
+This is equivalent to creating:
+
+```js
+new UserView({
+  user: resolvedUser,
+});
+```
+
+## Multi-argument and direct injection
+
+The injector can also inject dependencies into specific constructor arguments.
+
+```js
+class ApiClient {
+  static diInject = {
+    0: {
+      'app.config': 'config',
+      'logger': 'logger',
+    },
+  };
+
+  constructor({ config, logger }) {
+    this.config = config;
+    this.logger = logger;
+  }
+}
+```
+
+A string value at a numeric argument index means direct-argument injection:
+
+```js
+class UserService {
+  static diInject = {
+    0: 'api.client',
+  };
+
+  constructor(apiClient) {
+    this.apiClient = apiClient;
+  }
+}
+```
+
+This is equivalent to creating:
+
+```js
+new UserService(resolvedApiClient);
+```
+
+Nested and direct injection can be combined:
+
+```js
+class ProfilePageView {
+  static diInject = {
+    0: {
+      'user.view': 'userView',
+      'photo.view': 'photoView',
+    },
+  };
+
+  constructor({ userView, photoView }) {
+    this.userView = userView;
+    this.photoView = photoView;
+  }
+}
 ```
 
 The injector extension remains optional.
@@ -210,7 +298,8 @@ The core container provides:
 Optional extensions provide higher-level behavior:
 
 - define syntax extensions;
-- class injector extensions;
+- constructor injector extensions;
+- future annotation layers;
 - future tooling and helpers.
 
 ## Composition Root
@@ -239,6 +328,7 @@ Shared fictional application entities are described in:
 
 # Documentation
 
+- [`docs/architecture.md`](./docs/architecture.md)
 - [`docs/glossary.md`](./docs/glossary.md)
 - [`docs/roadmap.md`](./docs/roadmap.md)
 - [`docs/changelog.md`](./docs/changelog.md)
