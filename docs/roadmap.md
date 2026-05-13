@@ -35,12 +35,15 @@ Protect current behavior with automated tests before further refactoring.
 - Tests for dependency resolution
 - Tests for async factories
 - Tests for functional dependency results
+- Tests for injector behavior
+- Tests for syntax validation
+- Tests for edge-case injection conflicts
 
 **Status:** Mostly Completed
 
 ---
 
-## v0.3.0 — Core Refactoring
+## v0.3.0 — Core Refactoring and Injector Evolution
 
 **Goal:**  
 Separate the core system from utilities and optional features.
@@ -52,6 +55,13 @@ Separate the core system from utilities and optional features.
 - Separate dependency resolution logic
 - Define clear public API boundaries
 - Keep injector (class-based injection) as an optional layer
+- Introduce `diInject`
+- Preserve deprecated `diKeyMap`
+- Introduce direct-argument injection
+- Introduce multi-argument constructor injection
+- Introduce nested-in-argument injection
+- Improve injector validation pipeline
+- Improve injector runtime documentation
 
 **Status:** Mostly Completed
 
