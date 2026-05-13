@@ -222,6 +222,147 @@ describe('di.injector extension', () => {
     });
   });
 
+  it('supports direct-argument injection', async () => {
+    const di = createContainerWithInjector();
+
+    di.define('db.connector', [], () => {
+      return {
+        connection: 'main-db',
+      };
+    });
+
+    class DatabaseClient {
+      static diInject = {
+        1: 'db.connector',
+      };
+
+      constructor(params = {}, dbConnector) {
+        this.params = params;
+        this.dbConnector = dbConnector;
+      }
+    }
+
+    const instance = await di.createClassInstance(DatabaseClient, {
+      clientId: 'db-client',
+    });
+
+    expect(instance.params.clientId).toBe('db-client');
+
+    expect(instance.dbConnector).toEqual({
+      connection: 'main-db',
+    });
+  });
+
+  it('supports mixed nested and direct constructor injection', async () => {
+    const di = createContainerWithInjector();
+
+    di.define('config', [], () => {
+      return {
+        apiUrl: '/api',
+      };
+    });
+
+    di.define('db.connector', [], () => {
+      return {
+        connection: 'main-db',
+      };
+    });
+
+    di.define('logger', [], () => {
+      return {
+        name: 'logger',
+      };
+    });
+
+    class ComplexService {
+      static diInject = {
+        0: {
+          'config': 'config',
+        },
+        1: 'db.connector',
+        2: {
+          'logger': 'logger',
+        },
+      };
+
+      constructor(params = {}, dbConnector, services = {}) {
+        this.params = params;
+        this.dbConnector = dbConnector;
+        this.services = services;
+      }
+    }
+
+    const instance = await di.createClassInstance(ComplexService, {
+      serviceId: 'complex-service',
+    });
+
+    expect(instance.params.config).toEqual({
+      apiUrl: '/api',
+    });
+
+    expect(instance.dbConnector).toEqual({
+      connection: 'main-db',
+    });
+
+    expect(instance.services.logger).toEqual({
+      name: 'logger',
+    });
+  });
+
+  it('supports direct injection into constructor argument 0', async () => {
+    const di = createContainerWithInjector();
+
+    di.define('db.connector', [], () => {
+      return {
+        connection: 'main-db',
+      };
+    });
+
+    class DatabaseClient {
+      static diInject = {
+        0: 'db.connector',
+      };
+
+      constructor(dbConnector) {
+        this.dbConnector = dbConnector;
+      }
+    }
+
+    const instance = await di.createClassInstance(DatabaseClient);
+
+    expect(instance.dbConnector).toEqual({
+      connection: 'main-db',
+    });
+  });
+
+  it('throws when direct-argument injection tries to override existing constructor argument', async () => {
+    const di = createContainerWithInjector();
+
+    di.define('db.connector', [], () => {
+      return {
+        connection: 'main-db',
+      };
+    });
+
+    class DatabaseClient {
+      static diInject = {
+        0: 'db.connector',
+      };
+
+      constructor(dbConnector) {
+        this.dbConnector = dbConnector;
+      }
+    }
+
+    await expect(
+      di.createClassInstance(DatabaseClient, {
+        custom: true,
+      })
+    ).rejects.toThrow(
+      'DependencyInjection: Constructor argument 0 already has a value and cannot receive direct-argument injection.'
+    );
+  });
+
   it('preserves existing params and injects dependency into nested path', async () => {
     const di = createContainerWithInjector();
 
@@ -378,6 +519,22 @@ describe('di.injector extension', () => {
       di.createClassInstance(Service)
     ).rejects.toThrow(
       'DependencyInjection: Invalid diInject entry for "config".'
+    );
+  });
+
+  it('throws when multi-argument injection descriptor is invalid', async () => {
+    const di = createContainerWithInjector();
+
+    class Service {
+      static diInject = {
+        1: 123,
+      };
+    }
+
+    await expect(
+      di.createClassInstance(Service)
+    ).rejects.toThrow(
+      'DependencyInjection: Invalid injection descriptor for constructor argument 1.'
     );
   });
 });
